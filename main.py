@@ -380,7 +380,7 @@ def get_update_status():
     subprocess.run(['git', 'fetch'])
     frontend_update = "[behind " in str(subprocess.check_output(['git', 'status', '-sb']))
     os.chdir("../python-backend")
-    return {"update-available": backend_update or frontend_update}
+    return {"update_available": backend_update or frontend_update}
 
 
 @app.get("/api/update",
