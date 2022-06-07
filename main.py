@@ -393,7 +393,7 @@ def get_update():
 @app.get("/api/shutdown",
          tags=['Maintenance'], summary="Shut the server down.")
 def get_shutdown():
-    subprocess.run("sudo shutdown -P now")
+    os.system("shutdown -P now")
 
 
 @app.on_event("shutdown")
