@@ -161,7 +161,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # Ping an external server with the current IP address to enable redirects
 server_ip = os.popen('ip addr show wlan0 | grep "\<inet\>" | awk \'{ print $2 }\' | awk -F "/" \'{ print $1 }\'').read().strip()
-requests.post("deltabot.tartunlp.ai/pepper/set", json=json.dumps({'ip': server_ip}))
+requests.post("https://deltabot.tartunlp.ai/pepper/set", json=json.dumps({'ip': server_ip}))
 
 
 # Pepper
