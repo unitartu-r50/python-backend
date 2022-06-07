@@ -6,19 +6,19 @@ from fastapi.encoders import jsonable_encoder
 class AudioShortcutsHandler:
     def __init__(self, audio_file, actions_master):
         with open(audio_file) as f:
-            audio_list = json.load(f)['data']
+            audio_list = json.load(f)['audio_shortcuts']
 
         self.audio_items = [UtteranceItem.parse_obj(audio_item) for audio_item in audio_list]
         actions_master.add_actions(self.audio_items)
 
     def get_audio_metadata(self):
-        return {'data': self.audio_items}
+        return {'audio_shortcuts': self.audio_items}
 
     def get_single_audio_metadata(self, ID):
-        return {'data': next((x for x in self.audio_items if x.ID == ID), None)}
+        return {'audio_shortcuts': next((x for x in self.audio_items if x.ID == ID), None)}
 
     def _save_audio_metadata(self):
-        with open("data/quick_audio.json", "w") as f:
+        with open("data/audio_shortcuts.json", "w") as f:
             f.write(json.dumps(jsonable_encoder(self.get_audio_metadata())))
             print(f"saved:\n{self.get_audio_metadata()}")
 

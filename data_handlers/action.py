@@ -149,7 +149,7 @@ class ActionShortcutsHandler:
         self.actions_master = actions_handler
 
         with open(quick_actions_file) as f:
-            actions_list = json.load(f)['data']
+            actions_list = json.load(f)['action_shortcuts']
 
         self.actions = []
         for action in actions_list:
@@ -158,11 +158,11 @@ class ActionShortcutsHandler:
         self.actions_master.add_actions(self.actions)
 
     def _save_actions(self):
-        with open("data/quick_actions.json", "w") as f:
+        with open("data/action_shortcuts.json", "w") as f:
             f.write(json.dumps(jsonable_encoder(self.get_actions())))
 
     def get_actions(self):
-        return {"data": self.actions}
+        return {"action_shortcuts": self.actions}
 
     def add_action(self, multiaction):
         multiaction.ID = uuid4()

@@ -45,7 +45,7 @@ class SessionsHandler:
 
         # Load data from a JSON savefile
         with open(sessions_file) as f:
-            sessions_list = json.load(f)['data']
+            sessions_list = json.load(f)['sessions']
 
         # Replacing dictionaries with objects where viable, bottom-up
         self.sessions = []
@@ -80,7 +80,7 @@ class SessionsHandler:
             session_item['Actions'] = action_objects
 
     def get_sessions(self):
-        return {"data": self.sessions}
+        return {"sessions": self.sessions}
 
     def get_session(self, ID):
         return next((x for x in self.sessions if x.ID == ID), None)

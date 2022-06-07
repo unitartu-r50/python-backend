@@ -15,11 +15,11 @@ pip install fastapi[all]
 Recording:
 sudo apt install portaudio19-dev
 
+TODO: Migrate to Python3.9 (Debian has issues using older Python versions than default, the new Raspberries use 3.9)
 TODO: Cache motion IDs to persist between server restarts
 TODO: Check delay implementation
 TODO: Stop video playback when another command is sent
 TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to different folder
-TODO: GET requests return data as the value to key 'data', make the key 'sessions', 'audio' etc. instead
 TODO: Front expects a json-message as response to POST requests (e.g session adding). (partially?) Use status codes instead?
 TODO: Concurrent sessions on n>1 robots
 TODO: Unlink images/audio/motions
@@ -54,10 +54,22 @@ SPEAKER = 'Luukas'
 
 # Save file paths
 SESSIONS_FILE = "data/sessions.json"
-AUDIO_SHORTCUTS_FILE = "data/quick_audio.json"
-ACTION_SHORTCUTS_FILE = "data/quick_actions.json"
+AUDIO_SHORTCUTS_FILE = "data/audio_shortcuts.json"
+ACTION_SHORTCUTS_FILE = "data/action_shortcuts.json"
 MOTIONS_FILE = "data/motions.json"
 
+# Create missing files/folders
+if not os.path.isdir('data'):
+    os.mkdir('data')
+for subdir in ['uploads', 'recorded_audio']:
+    if not os.path.isdir(os.path.join('data', subdir)):
+        os.mkdir(os.path.join('data', subdir))
+for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
+    if not os.path.isfile(memory_file):
+        with open(memory_file, "w") as f:
+            f.write(json.dumps({os.path.basename(memory_file).rsplit(".", 1)[0]: []}))
+
+# FastAPI config
 tags_metadata = [
     {
         "name": "Pepper",
@@ -100,7 +112,6 @@ tags_metadata = [
         "description": "Calls related to updating the front-end and back-end servers."
     }
 ]
-
 app = FastAPI(
     title="Pepper backend",
     description="SA Tartu Ülikooli Kliinikumi kõnehäiretega laste robot Pepperi süsteemi toesserveri dokumentatsioon.",
