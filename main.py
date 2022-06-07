@@ -363,7 +363,13 @@ def stop_recording():
 @app.get("/api/check_update",
          tags=['Maintenance'], summary="Check for update availability.")
 def get_update_status():
-    return NotImplementedError
+    subprocess.run(['git', 'fetch'])
+    backend_update = "[behind " in str(subprocess.check_output(['git', 'status', '-sb']))
+    os.chdir("../web-client")
+    subprocess.run(['git', 'fetch'])
+    frontend_update = "[behind " in str(subprocess.check_output(['git', 'status', '-sb']))
+    os.chdir("../python-backend")
+    return {"update-available": backend_update or frontend_update}
 
 
 @app.get("/api/update",
