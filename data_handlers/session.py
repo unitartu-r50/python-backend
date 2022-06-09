@@ -69,9 +69,6 @@ class SessionsHandler:
                         action['MotionItem']['ID'] = handler_action.ID
 
                 # Rename media files from UUIDs to sha256 hashes when importing sessions
-                print(action['MotionItem']['ID'] is None)
-                print(action['MotionItem']['ID'])
-                print(action['MotionItem'])
                 fixed_action = await rename_files(MultiAction.parse_obj(action))
 
                 action_objects.append(fixed_action)

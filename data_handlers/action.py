@@ -2,6 +2,7 @@ import os
 import json
 from uuid import UUID, uuid4
 from base64 import b64encode, urlsafe_b64encode
+from aiofiles import open as async_open
 
 from pydantic import BaseModel
 from pydantic.schema import Optional
@@ -136,7 +137,7 @@ async def rename_files(action: MultiAction):
         os.rename(action.UtteranceItem.FilePath, new_path)
         action.UtteranceItem.FilePath = new_path
     if action.ImageItem and action.ImageItem.FilePath and _name_is_uuid(action.ImageItem.FilePath):
-        with open(action.ImageItem.FilePath, "rb") as image_file:
+        async with async_open(action.ImageItem.FilePath, "rb") as image_file:
             file_hash = await hash_file_to_filename(image_file)
         new_path = os.path.join('data', 'uploads', f"{file_hash}.{action.ImageItem.FilePath.rsplit('.', 1)[-1]}")
         os.rename(action.UtteranceItem.FilePath, new_path)

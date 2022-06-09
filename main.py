@@ -45,6 +45,7 @@ from data_handlers.motion import MotionsHandler
 from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAction, UtteranceItem
 from data_handlers.session import SessionsHandler, Session
 from pepperConnectionManager import PepperConnectionManager
+from addressForwardingManager import AddressForwarder
 from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file
 
 # SERVER SETTINGS
@@ -151,17 +152,13 @@ action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions
 
 recorder = Recorder()
 pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler)
+address_forwarder = AddressForwarder(10)
 
 
 # Verbose 422 logging (see https://fastapi.tiangolo.com/tutorial/handling-errors/#use-the-requestvalidationerror-body)
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(exc.body, exc.errors())
-
-
-# Ping an external server with the current IP address to enable redirects
-server_ip = os.popen('ip addr show wlan0 | grep "\<inet\>" | awk \'{ print $2 }\' | awk -F "/" \'{ print $1 }\'').read().strip()
-requests.post("https://deltabot.tartunlp.ai/pepper/set", json=json.dumps({'ip': server_ip}))
 
 
 # Pepper
@@ -218,7 +215,7 @@ def update_session(session: Session, session_id: UUID = Path(...)):
             tags=['Sessions'], summary="Delete an existing session.")
 def remove_session(session_id: UUID = Path(...)):
     sessions_handler.remove_session(session_id)
-    return sessions_handler.get_sessions()
+    return {'message': 'Session removed!'}
 
 
 @app.get("/api/session_items/{session_item_id}",
@@ -405,6 +402,7 @@ def get_shutdown():
 def shutdown_event():
     motions_handler.save_motions()
     sessions_handler.save_sessions()
+    address_forwarder.stop()
 
 # r.GET("/tmp/:name", serveCleanlyHandler)
 #
