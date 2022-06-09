@@ -29,7 +29,7 @@ class AddressForwarder:
     def __init__(self, timer):
         self.worker = None
         self.flag = False
-        # self._start(timer)
+        self._start(timer)
 
     def _start(self, timer):
         self.flag = True
@@ -38,4 +38,4 @@ class AddressForwarder:
 
     def stop(self):
         self.flag = False
-        # self.worker.join()
+        self.worker.join()
