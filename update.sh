@@ -2,7 +2,7 @@
 
 cd ../web-client/ || exit 1
 git pull --ff-only origin master
-npm run build
+sudo -H -u pi bash -c 'npm run build'
 cd ../python-backend || exit 1
 git pull --ff-only origin master
 source fastapi_env/bin/activate
