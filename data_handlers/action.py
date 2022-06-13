@@ -52,7 +52,6 @@ class ImageItem(SingleAction):
     def get_command_payload(self):
         with open(self.FilePath, "rb") as image:
             return {"command": "show_image",
-                    # "content": encode_url(self.FilePath),
                     "content": b64encode(image.read()).decode(),
                     "name": self.Name,
                     "delay": self.Delay,
@@ -64,8 +63,12 @@ class MotionItem(SingleAction):
     FilePath: str
 
     def get_command_payload(self):
+        content = ""
+        if self.FilePath:
+            with open(self.FilePath) as motion_file:
+                content = b64encode(motion_file.read().encode()).decode()
         return {"command": "move",
-                "content": "",
+                "content": content,
                 "name": self.Name,
                 "delay": self.Delay,
                 "id": str(self.ID)}

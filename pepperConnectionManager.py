@@ -63,28 +63,28 @@ class PepperConnectionManager:
 
     # TODO: Return error codes?
     async def send_command(self, action_id):
+        # Placeholder: grabbing the first connection, if available
+        # TODO: Send to specific connection (concurrency)
+        if len(self.active_connections) < 1:
+            return {action_id: "action_error", 'message': "You're not connected to a robot!"}
+        connection = self.active_connections[0]
+
         action = self.actions_master.get_action(action_id)
         if action is None:
-            return {"error": f"Faulty action ID: {action_id}"}
+            return {action_id: "action_error", 'message': f"Faulty action ID: {action_id}"}
 
         action_type = type(action).__name__
 
         # Ignore commands if one of the same type is already active
         if self.item_locks[action_type]:
-            return {"error": "Please wait for the previous command to finish!"}
+            return {action_id: "action_warning", 'message': "Please wait for the previous command to finish!"}
         # If the type is 'MultiAction', check for locks of each of its child actions
         if action_type == 'MultiAction':
-            if action.UtteranceItem.Phrase and self.item_locks['UtteranceItem']\
-                    or action.MotionItem.Name and self.item_locks['MotionItem']\
-                    or action.ImageItem.Name and self.item_locks['ImageItem']\
-                    or action.URLItem.URL and self.item_locks['URLItem']:
-                return {"error": "A child command is blocked, please wait for the previous command to finish!"}
-
-        # Placeholder: grabbing the first connection, if available
-        # TODO: Send to specific connection (concurrency)
-        if len(self.active_connections) < 1:
-            return {"error": "You're not connected to a robot!"}
-        connection = self.active_connections[0]
+            if action.UtteranceItem and action.UtteranceItem.Phrase and self.item_locks['UtteranceItem']\
+                    or action.MotionItem and action.MotionItem.Name and self.item_locks['MotionItem']\
+                    or action.ImageItem and action.ImageItem.Name and self.item_locks['ImageItem']\
+                    or action.URLItem and action.URLItem.URL and self.item_locks['URLItem']:
+                return {action_id: "action_error", 'message': "A child command is blocked, please wait for the previous command to finish!"}
 
         # Locking the action type, adding the in-progress-command to memory
         self.item_locks[action_type] = action.ID
@@ -102,22 +102,11 @@ class PepperConnectionManager:
             # Create and memorize the workers first to avoid race conditions,
             # e.g a worker finishing before another is declared.
             subcommand_args_list = []
-            if action.UtteranceItem.Phrase:
+            for child_action in action.get_children():
                 subcommand_args_list.append([self, connection, self.motions_master, self.actions_master,
-                                             action.UtteranceItem.ID, action.ID])
-                self.active_commands[action.ID]['children'].add(action.UtteranceItem.ID)
-            if action.MotionItem.Name:
-                subcommand_args_list.append([self, connection, self.motions_master, self.actions_master,
-                                             action.MotionItem.ID, action.ID])
-                self.active_commands[action.ID]['children'].add(action.MotionItem.ID)
-            if action.ImageItem.FilePath:
-                subcommand_args_list.append([self, connection, self.motions_master, self.actions_master,
-                                             action.ImageItem.ID, action.ID])
-                self.active_commands[action.ID]['children'].add(action.ImageItem.ID)
-            if action.URLItem.URL:
-                subcommand_args_list.append([self, connection, self.motions_master, self.actions_master,
-                                             action.URLItem.ID, action.ID])
-                self.active_commands[action.ID]['children'].add(action.URLItem.ID)
+                                             child_action.ID, action.ID])
+
+                self.active_commands[action.ID]['children'].add(child_action.ID)
 
             # Start the workers
             for subcommand_args in subcommand_args_list:
@@ -133,17 +122,20 @@ class PepperConnectionManager:
         # Construct the message to be returned
         if action_type == 'MultiAction':
             # If any children returned errors, construct an error message; otherwise report success
-            result = ", ".join(list(filter(lambda x: x != "", self.active_commands[action.ID]['errors'])))
-            if not result:
+            message = ", ".join(list(filter(lambda x: x != "", self.active_commands[action.ID]['errors'])))
+            if message:
+                result = "action_error"
+            else:
                 result = "action_success"
         else:
             # Report the outcome of the action
             result = self.active_commands[action.ID]['result']
+            message = ""
 
         # Clear the current command, release the type lock, return the result
         self.active_commands.pop(action.ID)
         self.item_locks[action_type] = None
-        return {str(action.ID): result}
+        return {str(action.ID): result, "message": message}
 
 
 # Simplified PepperConnectionManager.send_command() to send MultiAction subcommands on a different thread

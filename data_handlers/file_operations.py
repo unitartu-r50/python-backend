@@ -1,4 +1,5 @@
 import os
+import requests
 
 from hashlib import sha256
 from fastapi import UploadFile
@@ -26,3 +27,17 @@ async def hash_and_save_file(file_content: UploadFile, file_type: str):
         while content := await file_content.read(1024):
             await save_file.write(content)
     return {"filepath": save_path, "message": f"{file_type} uploaded!"}
+
+
+def synthesize(phrase, speaker, force=False):
+    print("Got phrase ", phrase)
+    filepath = os.path.join('data', 'uploads', hash_phrase_to_filename(phrase) + ".wav")
+    if force or not os.path.isfile(filepath):
+        print("Synthesizing ", filepath)
+        r = requests.post('https://api.tartunlp.ai/text-to-speech/v2', json={'text': phrase, 'speaker': speaker})
+        with open(filepath, 'wb') as save_file:
+            save_file.write(r.content)
+    else:
+        print("Skipping ", filepath, ", already exists")
+
+    return filepath

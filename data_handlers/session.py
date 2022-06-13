@@ -61,15 +61,38 @@ class SessionsHandler:
         for session_item in session['Items']:
             action_objects = []
             for action in session_item['Actions']:
-                # Action class change for any sessions created with the old setup
+                # Action class changes and checks for any sessions created with the old setup
                 if 'SayItem' in action.keys():
-                    action['UtteranceItem'] = action.pop('SayItem')
-                    action['MotionItem'] = action.pop('MoveItem')
-                    if (handler_action := self.motions_master.get_motion_by_name(action['MotionItem']['Name'])) is not None:
+
+                    if action['SayItem']['Phrase'] and action['SayItem']['FilePath']:
+                        action['UtteranceItem'] = action.pop('SayItem')
+                    else:
+                        action['UtteranceItem'] = None
+                        action.pop('SayItem')
+
+                    if (handler_action := self.motions_master.get_motion_by_name(action['MoveItem']['Name'])) is not None:
+                        action['MotionItem'] = action.pop('MoveItem')
                         action['MotionItem']['ID'] = handler_action.ID
+                        action['MotionItem']['Group'] = handler_action.Group
+                        action['MotionItem']['FilePath'] = handler_action.FilePath
+                    else:
+                        action['MotionItem'] = None
+                        action.pop('MoveItem')
+
+                    if action['ImageItem'] and (action['ImageItem']['FilePath'] is None or action['ImageItem']['FilePath'] == ""):
+                        action['ImageItem'] = None
+
+                    if action['URLItem'] and (action['URLItem']['URL'] is None or action['URLItem']['URL'] == ""):
+                        action['URLItem'] = None
+
+                action_object = MultiAction.parse_obj(action)
+
+                # Skip adding MultiActions with no sub-actions
+                if not action_object.get_children():
+                    continue
 
                 # Rename media files from UUIDs to sha256 hashes when importing sessions
-                fixed_action = await rename_files(MultiAction.parse_obj(action))
+                fixed_action = await rename_files(action_object)
 
                 action_objects.append(fixed_action)
                 self.actions_master.add_action(fixed_action)

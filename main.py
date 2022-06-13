@@ -26,7 +26,6 @@ TODO: Unlink images/audio/motions
 """
 import os
 import json
-import requests
 import subprocess
 
 from uuid import UUID, uuid4
@@ -46,7 +45,7 @@ from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAc
 from data_handlers.session import SessionsHandler, Session
 from pepperConnectionManager import PepperConnectionManager
 from addressForwardingManager import AddressForwarder
-from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file
+from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file, synthesize
 
 # SERVER SETTINGS
 
@@ -58,6 +57,7 @@ SESSIONS_FILE = "data/sessions.json"
 AUDIO_SHORTCUTS_FILE = "data/audio_shortcuts.json"
 ACTION_SHORTCUTS_FILE = "data/action_shortcuts.json"
 MOTIONS_FILE = "data/motions.json"
+ADDITINAL_MOTIONS_FOLDER = "data/additional_motions"
 
 # Create missing files/folders
 if not os.path.isdir('data'):
@@ -145,7 +145,7 @@ app.add_middleware(
 
 # Helper objects
 actions_handler = ActionsHandler()
-motions_handler = MotionsHandler(MOTIONS_FILE, actions_handler)
+motions_handler = MotionsHandler(MOTIONS_FILE, ADDITINAL_MOTIONS_FOLDER, actions_handler)
 sessions_handler = SessionsHandler(SESSIONS_FILE, actions_handler, motions_handler)
 audio_shortcuts_handler = AudioShortcutsHandler(AUDIO_SHORTCUTS_FILE, actions_handler)
 action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler)
@@ -310,16 +310,7 @@ def get_move(move_id: UUID = Path(...)):
 @app.post("/api/synthesis",
           tags=['Synthesis'], summary="Synthesize speech using the given phrase. Returns the path to the resulting file.")
 def post_synthesize(phrase: str = Body(...)):
-    print("Got phrase ", phrase)
-    filepath = os.path.join('data', 'uploads', hash_phrase_to_filename(phrase) + ".wav")
-    if not os.path.isfile(filepath):
-        print("Synthesizing ", filepath)
-        r = requests.post('https://api.tartunlp.ai/text-to-speech/v2', json={'text': phrase, 'speaker': SPEAKER})
-        with open(filepath, 'wb') as save_file:
-            save_file.write(r.content)
-    else:
-        print("Skipping ", filepath, ", already exists")
-    return {'message': 'Audio synthesized!', 'filepath': filepath}
+    return {'message': 'Audio synthesized!', 'filepath': synthesize(phrase, SPEAKER, force=True)}
 
 
 # Uploads

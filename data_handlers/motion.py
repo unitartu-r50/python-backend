@@ -1,3 +1,4 @@
+import os
 import json
 from uuid import uuid4
 from fastapi.encoders import jsonable_encoder
@@ -7,15 +8,29 @@ from data_handlers.action import MotionItem
 # Handler for the list of motions available to Pepper
 # Handlers for sessions and actions may store motions unknown to this, therefore unknown to Pepper
 class MotionsHandler:
-    def __init__(self, motions_file, actions_handler):
+    def __init__(self, motions_file, additional_motions_folder, actions_handler):
         self.motions = dict()
         self.save_file = motions_file
         self.actions_master = actions_handler
 
+        # Load previously saved motions
         with open(motions_file) as f:
             motions_list = json.load(f)['motions']
         for motion in motions_list:
             self.motions[motion['Name']] = MotionItem.parse_obj(motion)
+
+        # Load external motions
+        for folder in os.listdir(additional_motions_folder):
+            with open(os.path.join(additional_motions_folder, folder, "motions_data.json")) as f:
+                motions_list = json.load(f)
+            for motion in motions_list:
+                if self.get_motion_by_name(motion['Name']) is None:
+                    self.motions[motion['Name']] = MotionItem.parse_obj({'ID': uuid4(),
+                                                                         'Group': motion['Group'],
+                                                                         'Delay': motion['Delay'],
+                                                                         'Name': motion['Name'],
+                                                                         'FilePath': motion['FilePath']})
+
         self.actions_master.add_actions(self.motions.values())
 
     def add_motion(self, name, group="Remote", path=""):
