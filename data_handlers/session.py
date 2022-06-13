@@ -63,33 +63,27 @@ class SessionsHandler:
             for action in session_item['Actions']:
                 # Action class changes and checks for any sessions created with the old setup
                 if 'SayItem' in action.keys():
+                    action['UtteranceItem'] = action.pop('SayItem')
+                    action['MotionItem'] = action.pop('MoveItem')
+                    action_object = MultiAction.parse_obj(action)
+                    
+                    if not (action_object.UtteranceItem.Phrase and action_object.UtteranceItem.FilePath):
+                        action_object.UtteranceItem.flash()
 
-                    if action['SayItem']['Phrase'] and action['SayItem']['FilePath']:
-                        action['UtteranceItem'] = action.pop('SayItem')
+                    if (handler_action := self.motions_master.get_motion_by_name(action_object.MotionItem.Name)) is not None:
+                        action_object.MotionItem.ID = handler_action.ID
+                        action_object.MotionItem.Group = handler_action.Group
+                        action_object.MotionItem.FilePath = handler_action.FilePath
                     else:
-                        action['UtteranceItem'] = None
-                        action.pop('SayItem')
+                        action_object.MotionItem.flash()
 
-                    if (handler_action := self.motions_master.get_motion_by_name(action['MoveItem']['Name'])) is not None:
-                        action['MotionItem'] = action.pop('MoveItem')
-                        action['MotionItem']['ID'] = handler_action.ID
-                        action['MotionItem']['Group'] = handler_action.Group
-                        action['MotionItem']['FilePath'] = handler_action.FilePath
-                    else:
-                        action['MotionItem'] = None
-                        action.pop('MoveItem')
+                    if action_object.ImageItem.FilePath is None or action_object.ImageItem.FilePath == "":
+                        action_object.ImageItem.flash()
 
-                    if action['ImageItem'] and (action['ImageItem']['FilePath'] is None or action['ImageItem']['FilePath'] == ""):
-                        action['ImageItem'] = None
-
-                    if action['URLItem'] and (action['URLItem']['URL'] is None or action['URLItem']['URL'] == ""):
-                        action['URLItem'] = None
-
-                action_object = MultiAction.parse_obj(action)
-
-                # Skip adding MultiActions with no sub-actions
-                if not action_object.get_children():
-                    continue
+                    if action_object.URLItem.URL is None or action_object.URLItem.URL == "":
+                        action_object.URLItem.flash()
+                else:
+                    action_object = MultiAction.parse_obj(action)
 
                 # Rename media files from UUIDs to sha256 hashes when importing sessions
                 fixed_action = await rename_files(action_object)

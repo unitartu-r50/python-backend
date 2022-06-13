@@ -12,8 +12,12 @@ from .file_operations import hash_phrase_to_filename, hash_file_to_filename
 
 
 class Action(BaseModel):
-    ID: UUID = None
+    ID: Optional[UUID] = None
     Group: Optional[str]
+
+    def flash(self):
+        self.ID = None
+        self.Group = ""
 
     def get_command_payload(self):
         raise NotImplementedError(type(self).__name__ + ".get_command_payload() is unimplemented")
@@ -23,6 +27,11 @@ class SingleAction(Action):
     Delay: int
 
     # SingleAction is functionally an interface, it's not meant to be instantiated
+
+    def flash(self):
+        super().flash()
+        self.Delay = 0
+
     def get_command_payload(self):
         raise NotImplementedError
 
@@ -37,6 +46,11 @@ class UtteranceItem(SingleAction):
     Phrase: str
     FilePath: str
 
+    def flash(self):
+        super().flash()
+        self.Phrase = ""
+        self.FilePath = ""
+
     def get_command_payload(self):
         return {"command": "say",
                 "content": encode_url(self.FilePath),
@@ -48,6 +62,11 @@ class UtteranceItem(SingleAction):
 class ImageItem(SingleAction):
     Name: str
     FilePath: str
+
+    def flash(self):
+        super().flash()
+        self.Name = ""
+        self.FilePath = ""
 
     def get_command_payload(self):
         with open(self.FilePath, "rb") as image:
@@ -61,6 +80,11 @@ class ImageItem(SingleAction):
 class MotionItem(SingleAction):
     Name: str
     FilePath: str
+
+    def flash(self):
+        super().flash()
+        self.Name = ""
+        self.FilePath = ""
 
     def get_command_payload(self):
         content = ""
@@ -77,6 +101,11 @@ class MotionItem(SingleAction):
 class URLItem(SingleAction):
     Name: str
     URL: str
+
+    def flash(self):
+        super().flash()
+        self.Name = ""
+        self.URL = ""
 
     def get_command_payload(self):
         return {"command": "show_url",
