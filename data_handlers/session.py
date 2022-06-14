@@ -93,6 +93,16 @@ class SessionsHandler:
                 self.actions_master.add_actions(fixed_action.get_children())
             session_item['Actions'] = action_objects
 
+    def _link_motions(self, session):
+        for session_item in session.Items:
+            for action in session_item.Actions:
+                if (handler_action := self.motions_master.get_motion_by_name(action.MotionItem.Name)) is not None:
+                    action.MotionItem.ID = handler_action.ID
+                    action.MotionItem.Group = handler_action.Group
+                    action.MotionItem.FilePath = handler_action.FilePath
+                else:
+                    action.MotionItem.flash()
+
     def get_sessions(self):
         return {"sessions": self.sessions}
 
@@ -122,6 +132,7 @@ class SessionsHandler:
     def update_session(self, ID, updated_session):
         for index, session in enumerate(self.sessions):
             if session.ID == ID:
+                self._link_motions(updated_session)
                 initialise_identifiers(updated_session)
                 self.sessions[index] = updated_session
                 self.add_session_actions_to_action_master(updated_session, overwrite=True)
@@ -130,6 +141,7 @@ class SessionsHandler:
         return {'error': f"Couldn't find session {ID}!"}
 
     def add_session(self, session):
+        self._link_motions(session)
         initialise_identifiers(session)
         self.sessions.append(session)
         self.add_session_actions_to_action_master(session)
