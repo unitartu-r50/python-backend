@@ -44,7 +44,7 @@ def encode_url(url):
 
 class UtteranceItem(SingleAction):
     Phrase: str
-    FilePath: str
+    FilePath: Optional[str]
 
     def flash(self):
         super().flash()
@@ -85,6 +85,14 @@ class MotionItem(SingleAction):
         super().flash()
         self.Name = ""
         self.FilePath = ""
+
+    def attribute_correction(self, motions_master):
+        if (handler_action := motions_master.get_motion_by_name(self.Name)) is not None:
+            self.ID = handler_action.ID
+            self.Group = handler_action.Group
+            self.FilePath = handler_action.FilePath
+        else:
+            self.flash()
 
     def get_command_payload(self):
         content = ""
@@ -127,16 +135,20 @@ class MultiAction(Action):
     def get_command_payload(self):
         raise NotImplementedError
 
-    def get_children(self):
+    def get_children(self, must_be_valid=False):
         children = []
         if self.UtteranceItem is not None and self.UtteranceItem.ID is not None:
-            children.append(self.UtteranceItem)
+            if not must_be_valid or self.UtteranceItem.Phrase is not None:
+                children.append(self.UtteranceItem)
         if self.ImageItem is not None and self.ImageItem.ID is not None:
-            children.append(self.ImageItem)
+            if not must_be_valid or self.ImageItem.FilePath is not None:
+                children.append(self.ImageItem)
         if self.MotionItem is not None and self.MotionItem.ID is not None:
-            children.append(self.MotionItem)
+            if not must_be_valid or self.MotionItem.Name is not None:
+                children.append(self.MotionItem)
         if self.URLItem is not None and self.URLItem.ID is not None:
-            children.append(self.URLItem)
+            if not must_be_valid or self.URLItem.URL is not None:
+                children.append(self.URLItem)
         return children
 
 
@@ -178,17 +190,21 @@ async def rename_files(action: MultiAction):
 
 
 class ActionShortcutsHandler:
-    def __init__(self, quick_actions_file, actions_handler):
+    def __init__(self, quick_actions_file, actions_handler, motions_handler):
         self.actions_master = actions_handler
+        self.motions_master = motions_handler
 
         with open(quick_actions_file) as f:
             actions_list = json.load(f)['action_shortcuts']
 
         self.actions = []
         for action in actions_list:
-            self.actions.append(MultiAction.parse_obj(action))
-
-        self.actions_master.add_actions(self.actions)
+            multiaction = MultiAction.parse_obj(action)
+            self.actions.append(multiaction)
+            self.actions_master.add_action(multiaction)
+            for child_action in multiaction.get_children(must_be_valid=True):
+                print(child_action)
+                self.actions_master.add_action(child_action)
 
     def _save_actions(self):
         with open("data/action_shortcuts.json", "w") as f:
@@ -199,12 +215,13 @@ class ActionShortcutsHandler:
 
     def add_action(self, multiaction):
         multiaction.ID = uuid4()
-        multiaction.UtteranceItem.ID = uuid4()
-        multiaction.MotionItem.ID = uuid4()
-        multiaction.ImageItem.ID = uuid4()
-        multiaction.URLItem.ID = uuid4()
+        initialise_child_ids(multiaction)
         self.actions.append(multiaction)
         self.actions_master.add_action(multiaction)
+        if multiaction.MotionItem and multiaction.MotionItem.Name:
+            multiaction.MotionItem.attribute_correction(self.motions_master)
+        for child_action in multiaction.get_children(must_be_valid=True):
+            self.actions_master.add_action(child_action)
         self._save_actions()
 
     def remove_action(self, action_id):

@@ -102,11 +102,12 @@ class PepperConnectionManager:
             # Create and memorize the workers first to avoid race conditions,
             # e.g a worker finishing before another is declared.
             subcommand_args_list = []
-            for child_action in action.get_children():
+            for child_action in action.get_children(must_be_valid=True):
                 subcommand_args_list.append([self, connection, self.motions_master, self.actions_master,
                                              child_action.ID, action.ID])
 
                 self.active_commands[action.ID]['children'].add(child_action.ID)
+                # await send_subcommand(self, connection, self.motions_master, self.actions_master, child_action.ID, action.ID)
 
             # Start the workers
             for subcommand_args in subcommand_args_list:

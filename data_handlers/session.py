@@ -70,12 +70,7 @@ class SessionsHandler:
                     if not (action_object.UtteranceItem.Phrase and action_object.UtteranceItem.FilePath):
                         action_object.UtteranceItem.flash()
 
-                    if (handler_action := self.motions_master.get_motion_by_name(action_object.MotionItem.Name)) is not None:
-                        action_object.MotionItem.ID = handler_action.ID
-                        action_object.MotionItem.Group = handler_action.Group
-                        action_object.MotionItem.FilePath = handler_action.FilePath
-                    else:
-                        action_object.MotionItem.flash()
+                    action_object.MotionItem.attribute_correction(self.motions_master)
 
                     if action_object.ImageItem.FilePath is None or action_object.ImageItem.FilePath == "":
                         action_object.ImageItem.flash()

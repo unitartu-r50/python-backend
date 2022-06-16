@@ -16,7 +16,6 @@ Recording:
 sudo apt install portaudio19-dev
 
 TODO: Migrate to Python3.9 (Debian has issues using older Python versions than default, the new Raspberries use 3.9)
-TODO: Cache motion IDs to persist between server restarts
 TODO: Check delay implementation
 TODO: Stop video playback when another command is sent
 TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to different folder
@@ -50,6 +49,7 @@ from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save
 # SERVER SETTINGS
 
 # Neurokõne speaker
+SPEAKERS = ['Luukas', 'Lee']
 SPEAKER = 'Luukas'
 
 # Save file paths
@@ -62,7 +62,7 @@ ADDITINAL_MOTIONS_FOLDER = "data/additional_motions"
 # Create missing files/folders
 if not os.path.isdir('data'):
     os.mkdir('data')
-for subdir in ['uploads', 'recorded_audio']:
+for subdir in ['additional_motions', 'recorded_audio', 'uploads']:
     if not os.path.isdir(os.path.join('data', subdir)):
         os.mkdir(os.path.join('data', subdir))
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
@@ -148,7 +148,7 @@ actions_handler = ActionsHandler()
 motions_handler = MotionsHandler(MOTIONS_FILE, ADDITINAL_MOTIONS_FOLDER, actions_handler)
 sessions_handler = SessionsHandler(SESSIONS_FILE, actions_handler, motions_handler)
 audio_shortcuts_handler = AudioShortcutsHandler(AUDIO_SHORTCUTS_FILE, actions_handler)
-action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler)
+action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler, motions_handler)
 
 recorder = Recorder()
 pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler)
@@ -307,10 +307,28 @@ def get_move(move_id: UUID = Path(...)):
 
 # Speech synthesis
 
+
+@app.get("/api/voices",
+         tags=['Synthesis'], summary="List available voices")
+def get_voices():
+    return {'voices': SPEAKERS}
+
+
 @app.post("/api/synthesis",
           tags=['Synthesis'], summary="Synthesize speech using the given phrase. Returns the path to the resulting file.")
-def post_synthesize(phrase: str = Body(...)):
-    return {'message': 'Audio synthesized!', 'filepath': synthesize(phrase, SPEAKER, force=True)}
+def post_synthesize(voice: str, phrase: str = Body(...)):
+    return {'message': 'Audio synthesized!', 'filepath': synthesize(phrase, voice, force=True)}
+
+
+@app.post("/api/synthesis/batch",
+          tags=['Synthesis'], summary="Synthesize all speech for the given session.")
+def post_synthesize_batch(voice: str, session: Session):
+    print(voice)
+    for session_item in session.Items:
+        for action in session_item.Actions:
+            if action.UtteranceItem and action.UtteranceItem.Phrase:
+                action.UtteranceItem.FilePath = synthesize(action.UtteranceItem.Phrase, voice, force=True)
+    return sessions_handler.update_session(session.ID, session)
 
 
 # Uploads
