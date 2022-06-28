@@ -203,7 +203,6 @@ class ActionShortcutsHandler:
             self.actions.append(multiaction)
             self.actions_master.add_action(multiaction)
             for child_action in multiaction.get_children(must_be_valid=True):
-                print(child_action)
                 self.actions_master.add_action(child_action)
 
     def _save_actions(self):

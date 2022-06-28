@@ -323,7 +323,6 @@ def post_synthesize(voice: str, phrase: str = Body(...)):
 @app.post("/api/synthesis/batch",
           tags=['Synthesis'], summary="Synthesize all speech for the given session.")
 def post_synthesize_batch(voice: str, session: Session):
-    print(voice)
     for session_item in session.Items:
         for action in session_item.Actions:
             if action.UtteranceItem and action.UtteranceItem.Phrase:
