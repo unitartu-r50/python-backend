@@ -381,6 +381,13 @@ def stop_recording():
 
 # Server maintenance
 
+@app.get("/api/rebuild",
+         tags=['Maintenance'], summary="Rebuild the site via NPM.")
+def get_rebuild():
+    subprocess.Popen('./rebuild.sh', shell=True, preexec_fn=os.setpgrp)
+    return {'message': "Started rebuild.sh"}
+
+
 @app.get("/api/check_update",
          tags=['Maintenance'], summary="Check for update availability.")
 def get_update_status():

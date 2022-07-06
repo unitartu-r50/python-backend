@@ -177,15 +177,15 @@ async def rename_files(action: MultiAction):
     if action.UtteranceItem and action.UtteranceItem.FilePath and _name_is_uuid(action.UtteranceItem.FilePath):
         if not action.UtteranceItem.Phrase:
             raise ValueError(f"Corrupted session file - missing phrase for {action.UtteranceItem.FilePath}")
-        new_path = os.path.join('data', 'uploads', f"{hash_phrase_to_filename(action.UtteranceItem.Phrase)}.{action.UtteranceItem.FilePath.rsplit('.', 1)[-1]}")
-        os.rename(action.UtteranceItem.FilePath, new_path)
-        action.UtteranceItem.FilePath = new_path
+        new_utterance_path = os.path.join('data', 'uploads', f"{hash_phrase_to_filename(action.UtteranceItem.Phrase)}.{action.UtteranceItem.FilePath.rsplit('.', 1)[-1]}")
+        os.rename(action.UtteranceItem.FilePath, new_utterance_path)
+        action.UtteranceItem.FilePath = new_utterance_path
     if action.ImageItem and action.ImageItem.FilePath and _name_is_uuid(action.ImageItem.FilePath):
         async with async_open(action.ImageItem.FilePath, "rb") as image_file:
             file_hash = await hash_file_to_filename(image_file)
-        new_path = os.path.join('data', 'uploads', f"{file_hash}.{action.ImageItem.FilePath.rsplit('.', 1)[-1]}")
-        os.rename(action.UtteranceItem.FilePath, new_path)
-        action.UtteranceItem.FilePath = new_path
+        new_image_path = os.path.join('data', 'uploads', f"{file_hash}.{action.ImageItem.FilePath.rsplit('.', 1)[-1]}")
+        os.rename(action.ImageItem.FilePath, new_image_path)
+        action.ImageItem.FilePath = new_image_path
     return action
 
 
