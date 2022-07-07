@@ -66,7 +66,7 @@ class PepperConnectionManager:
         # Placeholder: grabbing the first connection, if available
         # TODO: Send to specific connection (concurrency)
         if len(self.active_connections) < 1:
-            return {action_id: "action_error", 'message': "You're not connected to a robot!"}
+            return {str(action_id): "action_error", 'message': "You're not connected to a robot!"}
         connection = self.active_connections[0]
 
         action = self.actions_master.get_action(action_id)
@@ -78,13 +78,17 @@ class PepperConnectionManager:
         # Ignore commands if one of the same type is already active
         if self.item_locks[action_type]:
             return {action_id: "action_warning", 'message': "Please wait for the previous command to finish!"}
-        # If the type is 'MultiAction', check for locks of each of its child actions
+        # If the type is 'MultiAction', ...
         if action_type == 'MultiAction':
+            # ... check that the action actually has any valid child actions to execute
+            if not action.get_children(must_be_valid=True):
+                return {str(action_id): "action_success", "message": "Action had no children to execute!"}
+            # ... and check for locks on each of its child actions
             if action.UtteranceItem and action.UtteranceItem.Phrase and self.item_locks['UtteranceItem']\
                     or action.MotionItem and action.MotionItem.Name and self.item_locks['MotionItem']\
                     or action.ImageItem and action.ImageItem.Name and self.item_locks['ImageItem']\
                     or action.URLItem and action.URLItem.URL and self.item_locks['URLItem']:
-                return {action_id: "action_error", 'message': "A child command is blocked, please wait for the previous command to finish!"}
+                return {str(action_id): "action_error", 'message': "A child command is blocked, please wait for the previous command to finish!"}
 
         # Locking the action type, adding the in-progress-command to memory
         self.item_locks[action_type] = action.ID
@@ -107,7 +111,6 @@ class PepperConnectionManager:
                                              child_action.ID, action.ID])
 
                 self.active_commands[action.ID]['children'].add(child_action.ID)
-                # await send_subcommand(self, connection, self.motions_master, self.actions_master, child_action.ID, action.ID)
 
             # Start the workers
             for subcommand_args in subcommand_args_list:

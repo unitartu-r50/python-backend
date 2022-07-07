@@ -21,12 +21,11 @@ async def hash_file_to_filename(file):
 async def hash_and_save_file(file_content: UploadFile, file_type: str):
     file_hash = await hash_file_to_filename(file_content)
     save_path = os.path.join("data", "uploads", f"{file_hash}.{file_content.filename.rsplit('.', 1)[-1]}")
-    if os.path.isfile(save_path):
-        return {"filepath": save_path, "message": f"{file_type} linked!"}
-    async with async_open(save_path, "wb") as save_file:
-        while content := await file_content.read(1024):
-            await save_file.write(content)
-    return {"filepath": save_path, "message": f"{file_type} uploaded!"}
+    if not os.path.isfile(save_path):
+        async with async_open(save_path, "wb") as save_file:
+            while content := await file_content.read(1024):
+                await save_file.write(content)
+    return {"filename": file_content.filename, "filepath": save_path, "message": f"{file_type} uploaded!"}
 
 
 def synthesize(phrase, speaker, force=False):

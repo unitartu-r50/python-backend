@@ -44,6 +44,7 @@ def encode_url(url):
 
 class UtteranceItem(SingleAction):
     Phrase: str
+    Pronunciation: Optional[str]
     FilePath: Optional[str]
 
     def flash(self):
@@ -57,6 +58,10 @@ class UtteranceItem(SingleAction):
                 "name": self.Phrase,
                 "delay": self.Delay,
                 "id": str(self.ID)}
+
+    def pronunciation_cleanup(self):
+        if self.Pronunciation == self.Phrase:
+            self.Pronunciation = ""
 
 
 class ImageItem(SingleAction):
@@ -153,14 +158,15 @@ class MultiAction(Action):
 
 
 def initialise_child_ids(action: MultiAction):
+    zero = UUID('00000000-0000-0000-0000-000000000000')
     # If ID-less child actions exist, grant them IDs
-    if action.UtteranceItem and action.UtteranceItem.Phrase and action.UtteranceItem.ID is None:
+    if action.UtteranceItem and action.UtteranceItem.Phrase and (action.UtteranceItem.ID is None or action.UtteranceItem.ID == zero):
         action.UtteranceItem.ID = uuid4()
-    if action.MotionItem and action.MotionItem.Name and action.MotionItem.ID is None:
+    if action.MotionItem and action.MotionItem.Name and (action.MotionItem.ID is None or action.MotionItem.ID == zero):
         action.MotionItem.ID = uuid4()
-    if action.ImageItem and action.ImageItem.FilePath and action.ImageItem.ID is None:
+    if action.ImageItem and action.ImageItem.FilePath and (action.ImageItem.ID is None or action.ImageItem.ID == zero):
         action.ImageItem.ID = uuid4()
-    if action.URLItem and action.URLItem.URL and action.URLItem.ID is None:
+    if action.URLItem and action.URLItem.URL and (action.URLItem.ID is None or action.URLItem.ID == zero):
         action.URLItem.ID = uuid4()
 
 

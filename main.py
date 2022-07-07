@@ -326,7 +326,12 @@ def post_synthesize_batch(voice: str, session: Session):
     for session_item in session.Items:
         for action in session_item.Actions:
             if action.UtteranceItem and action.UtteranceItem.Phrase:
-                action.UtteranceItem.FilePath = synthesize(action.UtteranceItem.Phrase, voice, force=True)
+                if action.UtteranceItem.Pronunciation and action.UtteranceItem.Pronunciation != action.UtteranceItem.Phrase:
+                    phrase = action.UtteranceItem.Pronunciation
+                else:
+                    phrase = action.UtteranceItem.Phrase
+                    action.UtteranceItem.Pronunciation = ""
+                action.UtteranceItem.FilePath = synthesize(phrase, voice, force=True)
     return sessions_handler.update_session(session.ID, session)
 
 

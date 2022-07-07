@@ -4,8 +4,7 @@ from pydantic import BaseModel
 from pydantic.schema import List, Optional
 from fastapi.encoders import jsonable_encoder
 
-from .action import rename_files
-from data_handlers.action import MultiAction, initialise_child_ids
+from data_handlers.action import MultiAction, initialise_child_ids, rename_files
 
 
 # TODO: Are all these IDs, names, groups etc. really necessary?
@@ -24,17 +23,19 @@ class Session(BaseModel):
     Items: List[SessionItem]
 
 
-def initialise_identifiers(session):
-    if session.ID is None:
+# Set missing IDs, remove redundant UtteranceItem pronunciation attributes
+def session_cleanup(session):
+    zero = UUID('00000000-0000-0000-0000-000000000000')
+    if session.ID is None or session.ID == zero:
         session.ID = uuid4()
     for session_item in session.Items:
-        if session_item.ID is None:
+        if session_item.ID is None or session_item.ID == zero:
             session_item.ID = uuid4()
         for action in session_item.Actions:
-            if type(action) == MultiAction:
-                if action.ID is None:
-                    action.ID = uuid4()
-                initialise_child_ids(action)
+            if action.ID is None or action.ID == zero:
+                action.ID = uuid4()
+            initialise_child_ids(action)
+            action.UtteranceItem.pronunciation_cleanup()
 
 
 class SessionsHandler:
@@ -58,12 +59,20 @@ class SessionsHandler:
             f.write(json.dumps(jsonable_encoder(self.get_sessions())))
 
     async def _dict_to_session_rename(self, session):
+        zero = UUID('00000000-0000-0000-0000-000000000000')
+        if session['ID'] is None or session['ID'] == zero:
+            session['ID'] = uuid4()
         for session_item in session['Items']:
+            if session_item['ID'] is None or session_item['ID'] == zero:
+                session_item['ID'] = uuid4()
             action_objects = []
             for action in session_item['Actions']:
+                if action['ID'] is None or action['ID'] == zero:
+                    action['ID'] = uuid4()
                 # Action class changes and checks for any sessions created with the old setup
                 if 'SayItem' in action.keys():
                     action['UtteranceItem'] = action.pop('SayItem')
+                    action['UtteranceItem']['Pronunciation'] = ""
                     action['MotionItem'] = action.pop('MoveItem')
                     action_object = MultiAction.parse_obj(action)
                     
@@ -80,6 +89,8 @@ class SessionsHandler:
                 else:
                     action_object = MultiAction.parse_obj(action)
 
+                # Cleanup missing/zero-value child action IDs
+                initialise_child_ids(action_object)
                 # Rename media files from UUIDs to sha256 hashes when importing sessions
                 fixed_action = await rename_files(action_object)
 
@@ -128,7 +139,7 @@ class SessionsHandler:
         for index, session in enumerate(self.sessions):
             if session.ID == ID:
                 self._link_motions(updated_session)
-                initialise_identifiers(updated_session)
+                session_cleanup(updated_session)
                 self.sessions[index] = updated_session
                 self.add_session_actions_to_action_master(updated_session, overwrite=True)
                 self.save_sessions()
@@ -137,7 +148,7 @@ class SessionsHandler:
 
     def add_session(self, session):
         self._link_motions(session)
-        initialise_identifiers(session)
+        session_cleanup(session)
         self.sessions.append(session)
         self.add_session_actions_to_action_master(session)
         self.save_sessions()
