@@ -58,7 +58,7 @@ class SessionsHandler:
         with open(self.save_file, "w") as f:
             f.write(json.dumps(jsonable_encoder(self.get_sessions())))
 
-    async def _dict_to_session_rename(self, session):
+    async def dict_to_session_rename(self, session):
         zero = UUID('00000000-0000-0000-0000-000000000000')
         if session['ID'] is None or session['ID'] == zero:
             session['ID'] = uuid4()
@@ -112,8 +112,17 @@ class SessionsHandler:
     def get_sessions(self):
         return {"sessions": self.sessions}
 
+    def get_sorted_sessions(self):
+        return {'sessions': sorted(self.sessions, key=lambda x: x.Name)}
+
     def get_session(self, ID):
         return next((x for x in self.sessions if x.ID == ID), None)
+
+    def get_session_index(self, ID):
+        for index, session in enumerate(self.get_sorted_sessions()['sessions']):
+            if session.ID == UUID(ID):
+                return index
+        return None
 
     def get_session_item(self, ID):
         for session in self.sessions:
@@ -124,7 +133,7 @@ class SessionsHandler:
 
     # Requires a dict-based session with no Action/SessionItem/etc. objects
     async def import_session(self, session):
-        await self._dict_to_session_rename(session)
+        await self.dict_to_session_rename(session)
         self.sessions.append(Session.parse_obj(session))
         self.save_sessions()
 

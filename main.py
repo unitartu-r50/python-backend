@@ -188,7 +188,7 @@ async def command_pepper(item_json: dict = Body(...)):
 @app.get("/api/sessions/",
          tags=['Sessions'], summary="Get all sessions.")
 def get_sessions():
-    return sessions_handler.get_sessions()
+    return sessions_handler.get_sorted_sessions()
 
 
 @app.post("/api/sessions/",
@@ -364,8 +364,19 @@ async def post_session(file_content: UploadFile):
             f1.write(session_zip.read(filename))
     with session_zip.open('session.json') as sess:
         session = json.loads(sess.read())
+
+    if file_content.filename.replace(".zip", "") != session['Name']:
+        return {'error': {'Import failed: archive and session name do not match!'}}
+
+    # If an existing session shares the name with the posted session, the client-side check has passed and
+    # the existing session must be updated instead.
+    for old_session in sessions_handler.sessions:
+        if session['Name'] == old_session.Name:
+            await sessions_handler.dict_to_session_rename(session)
+            sessions_handler.update_session(old_session.ID, Session.parse_obj(session))
+            return {'message': "Session update dummy msg", 'session_index': sessions_handler.get_session_index(session['ID'])}
     await sessions_handler.import_session(session)
-    return {'message': 'Session imported!'}
+    return {'message': 'Session imported!', 'session_index': sessions_handler.get_session_index(session['ID'])}
 
 
 # Recording
