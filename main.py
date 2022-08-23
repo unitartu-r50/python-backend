@@ -44,7 +44,7 @@ from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAc
 from data_handlers.session import SessionsHandler, Session
 from pepperConnectionManager import PepperConnectionManager
 from addressForwardingManager import AddressForwarder
-from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file, synthesize
+from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file, synthesize, compress_session
 
 # SERVER SETTINGS
 
@@ -62,7 +62,7 @@ ADDITINAL_MOTIONS_FOLDER = "data/additional_motions"
 # Create missing files/folders
 if not os.path.isdir('data'):
     os.mkdir('data')
-for subdir in ['additional_motions', 'recorded_audio', 'uploads']:
+for subdir in ['additional_motions', 'recorded_audio', 'uploads', 'compressed_sessions']:
     if not os.path.isdir(os.path.join('data', subdir)):
         os.mkdir(os.path.join('data', subdir))
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
@@ -222,6 +222,12 @@ def remove_session(session_id: UUID = Path(...)):
          tags=['Sessions'], summary="Get a specific question (SessionItem).")
 def get_session_item(session_item_id: UUID = Path(...)):
     return sessions_handler.get_session_item(session_item_id)
+
+
+@app.get("/api/export_session/{session_id}",
+         tags=['Sessions'], summary="Export a session.")
+def get_exported_session(session_id: UUID = Path(...)):
+    return compress_session(sessions_handler.get_session(session_id))
 
 
 @app.delete("/api/instruction/{action_id}",

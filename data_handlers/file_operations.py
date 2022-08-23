@@ -1,9 +1,13 @@
 import os
+import json
 import requests
 
 from hashlib import sha256
-from fastapi import UploadFile
+from zipfile import ZipFile
 from aiofiles import open as async_open
+
+from fastapi import UploadFile
+from fastapi.encoders import jsonable_encoder
 
 
 def hash_phrase_to_filename(string):
@@ -40,3 +44,18 @@ def synthesize(phrase, speaker, force=False):
         print("Skipping ", filepath, ", already exists")
 
     return filepath
+
+
+def compress_session(session):
+    file_path = os.path.join("data", "compressed_sessions", session.Name + ".zip")
+    with ZipFile(file_path, "w") as zip_file:
+        zip_file.writestr("session.json", json.dumps(jsonable_encoder(session)))
+        for item in session.Items:
+            for action in item.Actions:
+                if action.UtteranceItem and action.UtteranceItem.FilePath:
+                    zip_file.write(action.UtteranceItem.FilePath,
+                                   arcname=os.path.join("uploads", os.path.basename(action.UtteranceItem.FilePath)))
+                if action.ImageItem and action.ImageItem.FilePath:
+                    zip_file.write(action.ImageItem.FilePath,
+                                   arcname=os.path.join("uploads", os.path.basename(action.ImageItem.FilePath)))
+    return {"relative_path": file_path, "message": "Session exported, check your browser downloads!"}
