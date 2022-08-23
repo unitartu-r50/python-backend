@@ -3,6 +3,7 @@ import json
 from uuid import UUID, uuid4
 from base64 import b64encode, urlsafe_b64encode
 from aiofiles import open as async_open
+from urllib.parse import urlparse, parse_qs
 
 from pydantic import BaseModel
 from pydantic.schema import Optional
@@ -111,6 +112,22 @@ class MotionItem(SingleAction):
                 "id": str(self.ID)}
 
 
+# https://stackoverflow.com/a/7936523
+def video_id(value):
+    query = urlparse(value)
+    if query.hostname == 'youtu.be':
+        return query.path[1:]
+    if query.hostname in ('www.youtube.com', 'youtube.com'):
+        if query.path == '/watch':
+            p = parse_qs(query.query)
+            return p['v'][0]
+        if query.path[:7] == '/embed/':
+            return query.path.split('/')[2]
+        if query.path[:3] == '/v/':
+            return query.path.split('/')[2]
+    return None
+
+
 class URLItem(SingleAction):
     Name: str
     URL: str
@@ -121,8 +138,11 @@ class URLItem(SingleAction):
         self.URL = ""
 
     def get_command_payload(self):
+        url = self.URL
+        if found_id := video_id(self.URL):
+            url = 'youtube:' + found_id
         return {"command": "show_url",
-                "content": encode_url(self.URL),
+                "content": encode_url(url),
                 "name": self.Name,
                 "delay": self.Delay,
                 "id": str(self.ID)}
