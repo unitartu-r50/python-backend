@@ -9,15 +9,27 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 class PepperConnectionManager:
     def __init__(self, motions_handler, actions_handler):
+        # Seconds before an action can be overriden
+        self.override_time = 5
+
         self.motions_master = motions_handler
         self.actions_master = actions_handler
         self.active_connections: List[WebSocket] = []
         self.active_commands = {}
-        self.item_locks = {'MultiAction': None,
-                           'UtteranceItem': None,
-                           'MotionItem': None,
-                           'ImageItem': None,
-                           'URLItem': None}
+        self.item_locks = {'MultiAction': {},
+                           'UtteranceItem': {},
+                           'MotionItem': {},
+                           'ImageItem': {},
+                           'URLItem': {}}
+
+    # TODO: More useful after implementing concurrency - add robot identifier as parameter, clear that robot only
+    def clear_locks(self):
+        self.active_commands = {}
+        self.item_locks = {'MultiAction': {},
+                           'UtteranceItem': {},
+                           'MotionItem': {},
+                           'ImageItem': {},
+                           'URLItem': {}}
 
     async def connect(self, websocket):
         await websocket.accept()
@@ -48,9 +60,11 @@ class PepperConnectionManager:
         # Client disconnects
         except WebSocketDisconnect:
             self.disconnect(websocket)
+            self.clear_locks()
             await self.log("Client disconnected")
 
     def disconnect(self, websocket: WebSocket):
+        self.clear_locks()
         self.active_connections.remove(websocket)
 
     async def log(self, message: str):
@@ -60,6 +74,14 @@ class PepperConnectionManager:
         if self.active_connections:
             return 1
         return 0
+
+    async def unlockable_child(self, child_action_type):
+        if self.item_locks[child_action_type]['has_blocked'] and time.time() - self.item_locks[child_action_type]['start_time'] > self.override_time:
+            await self.active_commands[self.item_locks[child_action_type]]['event'].set()
+            return True
+        else:
+            self.item_locks[child_action_type]['has_blocked'] = True
+            return False
 
     # TODO: Return error codes?
     async def send_command(self, action_id):
@@ -75,23 +97,69 @@ class PepperConnectionManager:
 
         action_type = type(action).__name__
 
-        # Ignore commands if one of the same type is already active
+        # TODO: Fix the underlying issue, remove workaround
+        # After ending blocking actions in another action call, unexpected behaviour appears
+        # (new actions and their locks do not get stored in memory etc.).
+        # However, once the process finishes (including the command_pepper() call from main.py),
+        # everything returns to normal. Therefore, the issue must lie with asyncio and this implementation.
+        # Workaround: fail with a special response code and have the client call the action again.
+        lockbreak = False
+
+        # Check if an action of the same type is already active
         if self.item_locks[action_type]:
-            return {action_id: "action_warning", 'message': "Please wait for the previous command to finish!"}
+            # If the override lock has been cleared and the override time have elapsed, clear the blocking action, ...
+            if self.item_locks[action_type]['has_blocked'] and time.time() - self.item_locks[action_type]['start_time'] > self.override_time:
+                # If the blocking command is a MultiAction, the locked children must also be released.
+                # The last child will release the parent on its own.
+                if self.item_locks['MultiAction']:
+                    for child_action_type in ['UtteranceItem', 'MotionItem', 'ImageItem', 'URLItem']:
+                        if self.item_locks[child_action_type]:
+                            await self.active_commands[self.item_locks[child_action_type]['UUID']]['event'].set()
+                            lockbreak = True
+                else:
+                    await self.active_commands[self.item_locks[action_type]]['event'].set()
+            # ... otherwise clear the override lock and display the warning.
+            else:
+                self.item_locks[action_type]['has_blocked'] = True
+                return {action_id: "action_warning", 'message': "Please wait for the previous command to finish!"}
         # If the type is 'MultiAction', ...
-        if action_type == 'MultiAction':
-            # ... check that the action actually has any valid child actions to execute
+        elif action_type == 'MultiAction':
+            # ... check that the action actually has any valid child actions to execute ...
             if not action.get_children(must_be_valid=True):
-                return {str(action_id): "action_success", "message": "Action had no children to execute!"}
-            # ... and check for locks on each of its child actions
-            if action.UtteranceItem and action.UtteranceItem.Phrase and self.item_locks['UtteranceItem']\
-                    or action.MotionItem and action.MotionItem.Name and self.item_locks['MotionItem']\
-                    or action.ImageItem and action.ImageItem.Name and self.item_locks['ImageItem']\
-                    or action.URLItem and action.URLItem.URL and self.item_locks['URLItem']:
-                return {str(action_id): "action_error", 'message': "A child command is blocked, please wait for the previous command to finish!"}
+                return {str(action_id): "action_warning", "message": "MultiAction has no children to execute!"}
+            # ... and check for locks on each of its child actions.
+            if action.UtteranceItem and action.UtteranceItem.Phrase and self.item_locks['UtteranceItem']:
+                if await self.unlockable_child('UtteranceItem'):
+                    lockbreak = True
+                else:
+                    return {str(action_id): "action_error",
+                            'message': "A child command is blocked, please wait for the previous command to finish!"}
+            if action.MotionItem and action.MotionItem.Name and self.item_locks['MotionItem']:
+                if await self.unlockable_child('MotionItem'):
+                    lockbreak = True
+                else:
+                    return {str(action_id): "action_error",
+                            'message': "A child command is blocked, please wait for the previous command to finish!"}
+            if action.ImageItem and action.ImageItem.Name and self.item_locks['ImageItem']:
+                if await self.unlockable_child('ImageItem'):
+                    lockbreak = True
+                else:
+                    return {str(action_id): "action_error",
+                            'message': "A child command is blocked, please wait for the previous command to finish!"}
+            if action.URLItem and action.URLItem.URL and self.item_locks['URLItem']:
+                if await self.unlockable_child('URLItem'):
+                    lockbreak = True
+                else:
+                    return {str(action_id): "action_error",
+                            'message': "A child command is blocked, please wait for the previous command to finish!"}
+
+        # See long comment above
+        if lockbreak:
+            return {str(action_id): "action_retry_required", "message": "redo required"}
 
         # Locking the action type, adding the in-progress-command to memory
-        self.item_locks[action_type] = action.ID
+        self.item_locks[action_type]['UUID'] = action.ID
+        self.item_locks[action_type]['has_blocked'] = False
         self.active_commands[action.ID] = dict()
 
         # Event to await
@@ -120,6 +188,9 @@ class PepperConnectionManager:
             # Send the command to Pepper
             await connection.send_text(json.dumps(action.get_command_payload()))
 
+        # Save command start time (relevant for releasing locks on user override)
+        self.item_locks[action_type]['start_time'] = time.time()
+
         # Wait for the command to be carried out (notification performed by this.connect)
         await task_finished.wait()
 
@@ -138,7 +209,7 @@ class PepperConnectionManager:
 
         # Clear the current command, release the type lock, return the result
         self.active_commands.pop(action.ID)
-        self.item_locks[action_type] = None
+        self.item_locks[action_type] = {}
         return {str(action.ID): result, "message": message}
 
 
@@ -168,7 +239,8 @@ async def send_subcommand(connection_manager, connection, motions_handler, actio
     # Lock checks and connection selection are performed by the caller, skipping them
 
     # Locking the action type, adding the in-progress-command to memory
-    connection_manager.item_locks[action_type] = action.ID
+    connection_manager.item_locks[action_type]['UUID'] = action.ID
+    connection_manager.item_locks[action_type]['has_blocked'] = False
     connection_manager.active_commands[action.ID] = dict()
 
     # Event to await
@@ -178,13 +250,19 @@ async def send_subcommand(connection_manager, connection, motions_handler, actio
     # Send the command to Pepper
     await connection.send_text(json.dumps(action.get_command_payload()))
 
+    # Save command start time (relevant for releasing erroneous locks)
+    connection_manager.item_locks[action_type]['start_time'] = time.time()
+
     # Wait for the command to be carried out (notification performed by this.connection_manager.connect)
     await task_finished.wait()
 
     # Clear the current command (after memorizing the stored result), release the type lock
-    result = connection_manager.active_commands[action.ID]['result']
+    if 'result' in connection_manager.active_commands[action.ID].keys():
+        result = connection_manager.active_commands[action.ID]['result']
+    else:
+        result = ""
     connection_manager.active_commands.pop(action.ID)
-    connection_manager.item_locks[action_type] = None
+    connection_manager.item_locks[action_type] = {}
 
     # If the result is an error, store the type of the failed action; otherwise, store an empty string
     connection_manager.active_commands[parent_command_id]['errors'].append("" if result == 'action_success' else action_type)
