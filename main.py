@@ -247,15 +247,19 @@ def get_action_shortcuts():
 @app.post("/api/actions/",
           tags=['Actions'], summary="Add an action shortcut.")
 def post_action_shortcut(action: MultiAction):
-    action_shortcuts_handler.add_action(action)
-    return {"message": "Action created!"}
+    return action_shortcuts_handler.add_action(action)
+
+
+@app.post("/api/actions/{action_id}",
+          tags=['Actions'], summary="Update an action shortcut")
+def update_action_shortcut(action: MultiAction):
+    return action_shortcuts_handler.update_action(action)
 
 
 @app.delete("/api/actions/{action_id}",
             tags=['Actions'], summary="Delete an action shortcut.")
 def delete_action_shortcut(action_id: UUID = Path(...)):
-    action_shortcuts_handler.remove_action(action_id)
-    return {"message": "Action deleted!"}
+    return action_shortcuts_handler.remove_action(action_id)
 
 
 # Quick audio

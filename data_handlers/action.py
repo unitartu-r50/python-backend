@@ -248,13 +248,26 @@ class ActionShortcutsHandler:
         for child_action in multiaction.get_children(must_be_valid=True):
             self.actions_master.add_action(child_action)
         self._save_actions()
+        return {"message": "Shortcut created!"}
+
+    def update_action(self, action):
+        for index, listed_action in enumerate(self.actions):
+            if listed_action.ID == action.ID:
+                break
+        else:
+            return {"error": f"Shortcut {action.ID} was not found!"}
+
+        self.actions[index] = action
+        self._save_actions()
+        return {"message": "Shortcut updated!"}
 
     def remove_action(self, action_id):
         for index, listed_action in enumerate(self.actions):
             if listed_action.ID == action_id:
                 self.actions.pop(index)
-                break
-        self._save_actions()
+                self._save_actions()
+                return {"message": "Shortcut deleted!"}
+        return {"error": f"Shortcut {action_id} was not found!"}
 
 
 # TODO: Should actions be removed from this handler when removed elsewhere?
