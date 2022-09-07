@@ -17,7 +17,6 @@ sudo apt install portaudio19-dev
 
 TODO: Migrate to Python3.9 (Debian has issues using older Python versions than default, the new Raspberries use 3.9)
 TODO: Check delay implementation
-TODO: Stop video playback when another command is sent
 TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to different folder
 TODO: Front expects a json-message as response to POST requests (e.g session adding). (partially?) Use status codes instead?
 TODO: Concurrent sessions on n>1 robots
@@ -163,7 +162,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # Pepper
 
-# TODO: Eduroam breaks websocket connections for some reason. Find out why, make sure final network doesn't.
 @app.websocket("/api/pepper/initiate")
 async def pepper_connect(websocket: WebSocket):
     await pepper_connection_manager.connect(websocket)
@@ -171,16 +169,21 @@ async def pepper_connect(websocket: WebSocket):
 
 # TODO: Currently reports whether ANY connection exists. Rewrite to checking a specific connection.
 @app.get("/api/pepper/status",
-         tags=['Pepper'], summary="Check Pepper connection status")
+         tags=['Pepper'], summary="Check Pepper connection status.")
 def check_pepper():
     return {"status": pepper_connection_manager.get_status()}
 
 
 @app.post("/api/pepper/send_command",
-          tags=['Pepper'], summary="Send Pepper a command to fulfill")
+          tags=['Pepper'], summary="Send Pepper a command to fulfill.")
 async def command_pepper(item_json: dict = Body(...)):
-    # TODO: Finish (check if URLs work in a non-local network)
     return await pepper_connection_manager.send_command(UUID(item_json['item_id']))
+
+
+@app.get("/api/pepper/stop_video",
+         tags=['Pepper'], summary="Stop video playback.")
+async def stop_video():
+    return await pepper_connection_manager.stop_video()
 
 
 # Sessions

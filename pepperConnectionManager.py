@@ -83,6 +83,15 @@ class PepperConnectionManager:
             self.item_locks[child_action_type]['has_blocked'] = True
             return False
 
+    async def stop_video(self):
+        connection = self.active_connections[0]
+        await connection.send_text(json.dumps({"command": "stop_video",
+                                               "content": None,
+                                               "name": None,
+                                               "delay": 0,
+                                               "id": None}))
+        return {"message": "Stop command sent!"}
+
     # TODO: Return error codes?
     async def send_command(self, action_id):
         # Placeholder: grabbing the first connection, if available
