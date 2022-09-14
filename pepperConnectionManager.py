@@ -92,6 +92,15 @@ class PepperConnectionManager:
                                                "id": None}))
         return {"message": "Stop command sent!"}
 
+    async def clear_image(self):
+        connection = self.active_connections[0]
+        await connection.send_text(json.dumps({"command": "clear_image",
+                                               "content": None,
+                                               "name": None,
+                                               "delay": 0,
+                                               "id": None}))
+        return {"message": "Clear command sent!"}
+
     # TODO: Return error codes?
     async def send_command(self, action_id):
         # Placeholder: grabbing the first connection, if available
@@ -165,6 +174,10 @@ class PepperConnectionManager:
         # See long comment above
         if lockbreak:
             return {str(action_id): "action_retry_required", "message": "redo required"}
+
+        # Clearing the screen if required
+        if action.PrimaryAction:
+            await self.clear_image()
 
         # Locking the action type, adding the in-progress-command to memory
         self.item_locks[action_type]['UUID'] = action.ID

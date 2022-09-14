@@ -15,6 +15,7 @@ from .file_operations import hash_phrase_to_filename, hash_file_to_filename
 class Action(BaseModel):
     ID: Optional[UUID] = None
     Group: Optional[str]
+    PrimaryAction: Optional[bool] = False
 
     def flash(self):
         self.ID = None

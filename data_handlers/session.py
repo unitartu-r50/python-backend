@@ -63,6 +63,7 @@ class SessionsHandler:
         if session['ID'] is None or session['ID'] == zero:
             session['ID'] = uuid4()
         for session_item in session['Items']:
+            primary_action = True
             if session_item['ID'] is None or session_item['ID'] == zero:
                 session_item['ID'] = uuid4()
             action_objects = []
@@ -93,6 +94,10 @@ class SessionsHandler:
                 initialise_child_ids(action_object)
                 # Rename media files from UUIDs to sha256 hashes when importing sessions
                 fixed_action = await rename_files(action_object)
+
+                if primary_action:
+                    fixed_action.PrimaryAction = True
+                    primary_action = False
 
                 action_objects.append(fixed_action)
                 self.actions_master.add_action(fixed_action)
@@ -139,7 +144,11 @@ class SessionsHandler:
 
     def add_session_actions_to_action_master(self, session, overwrite=False):
         for session_item in session.Items:
+            primary_action = True
             for action in session_item.Actions:
+                if primary_action:
+                    action.PrimaryAction = True
+                    primary_action = False
                 self.actions_master.add_action(action, overwrite=overwrite)
                 for child_action in action.get_children():
                     self.actions_master.add_action(child_action, overwrite=overwrite)
@@ -158,8 +167,8 @@ class SessionsHandler:
     def add_session(self, session):
         self._link_motions(session)
         session_cleanup(session)
-        self.sessions.append(session)
         self.add_session_actions_to_action_master(session)
+        self.sessions.append(session)
         self.save_sessions()
 
     def remove_session(self, session_id):
