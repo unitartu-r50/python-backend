@@ -35,6 +35,7 @@ from fastapi import FastAPI, Form, Path, Body, UploadFile, WebSocket, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, validator
 
 from recorder import Recorder
 from data_handlers.audio import AudioShortcutsHandler
@@ -327,10 +328,24 @@ def get_voices():
     return {'voices': SPEAKERS}
 
 
+class SynthesisRequest(BaseModel):
+    phrase: str
+    voice: str
+    speed: float
+
+    @validator('speed')
+    def speed_validator(cls, spd):
+        print(spd)
+        if spd < 0.5 or spd > 2:
+            raise ValueError("Speed must be a value between 0.5 and 2!")
+        return spd
+
+
 @app.post("/api/synthesis",
           tags=['Synthesis'], summary="Synthesize speech using the given phrase. Returns the path to the resulting file.")
-def post_synthesize(voice: str, phrase: str = Body(...)):
-    return {'message': 'Audio synthesized!', 'filepath': synthesize(phrase, voice, force=True)}
+def post_synthesize(sr: SynthesisRequest):
+    print(sr)
+    return {'message': 'Audio synthesized!', 'filepath': synthesize(sr.phrase, sr.voice, sr.speed, force=True)}
 
 
 @app.post("/api/synthesis/batch",
@@ -344,7 +359,7 @@ def post_synthesize_batch(voice: str, session: Session):
                 else:
                     phrase = action.UtteranceItem.Phrase
                     action.UtteranceItem.Pronunciation = ""
-                action.UtteranceItem.FilePath = synthesize(phrase, voice, force=True)
+                action.UtteranceItem.FilePath = synthesize(phrase, voice, action.UtteranceItem.Speed, force=True)
     return sessions_handler.update_session(session.ID, session)
 
 

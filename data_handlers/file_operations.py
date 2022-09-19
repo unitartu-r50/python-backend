@@ -32,12 +32,15 @@ async def hash_and_save_file(file_content: UploadFile, file_type: str):
     return {"filename": file_content.filename, "filepath": save_path, "message": f"{file_type} uploaded!"}
 
 
-def synthesize(phrase, speaker, force=False):
+def synthesize(phrase, speaker, speed=1.0, force=False):
     print("Got phrase ", phrase)
-    filepath = os.path.join('data', 'uploads', hash_phrase_to_filename(phrase) + ".wav")
+    filepath = os.path.join('data', 'uploads', hash_phrase_to_filename(phrase + speaker + str(speed)) + ".wav")
     if force or not os.path.isfile(filepath):
         print("Synthesizing ", filepath)
-        r = requests.post('https://api.tartunlp.ai/text-to-speech/v2', json={'text': phrase, 'speaker': speaker})
+        print(phrase, speaker, speed)
+        r = requests.post('https://api.tartunlp.ai/text-to-speech/v2', json={'text': phrase,
+                                                                             'speaker': speaker,
+                                                                             'speed': speed})
         with open(filepath, 'wb') as save_file:
             save_file.write(r.content)
     else:

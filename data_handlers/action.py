@@ -20,6 +20,7 @@ class Action(BaseModel):
     def flash(self):
         self.ID = None
         self.Group = ""
+        self.PrimaryAction = False
 
     def get_command_payload(self):
         raise NotImplementedError(type(self).__name__ + ".get_command_payload() is unimplemented")
@@ -48,6 +49,7 @@ class UtteranceItem(SingleAction):
     Phrase: str
     Pronunciation: Optional[str]
     FilePath: Optional[str]
+    Speed: Optional[float] = 1.0
 
     def flash(self):
         super().flash()
