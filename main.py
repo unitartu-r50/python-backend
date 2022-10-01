@@ -168,23 +168,34 @@ async def pepper_connect(websocket: WebSocket):
     await pepper_connection_manager.connect(websocket)
 
 
-# TODO: Currently reports whether ANY connection exists. Rewrite to checking a specific connection.
+@app.get("/api/pepper/connect",
+         tags=['Pepper'], summary="Connect the client to a robot.")
+async def connect_pepper(conn: str):
+    return await pepper_connection_manager.link(conn)
+
+
+@app.get("/api/pepper/disconnect",
+         tags=['Pepper'], summary="Disconnect the client from a robot.")
+async def disconnect_pepper(conn: str):
+    return await pepper_connection_manager.unlink(conn)
+
+
 @app.get("/api/pepper/status",
          tags=['Pepper'], summary="Check Pepper connection status.")
-def check_pepper():
-    return {"status": pepper_connection_manager.get_status()}
+def check_pepper(conn: str):
+    return {"status": pepper_connection_manager.get_status(conn)}
 
 
 @app.post("/api/pepper/send_command",
           tags=['Pepper'], summary="Send Pepper a command to fulfill.")
-async def command_pepper(item_json: dict = Body(...)):
-    return await pepper_connection_manager.send_command(UUID(item_json['item_id']))
+async def command_pepper(conn: str, item_json: dict = Body(...)):
+    return await pepper_connection_manager.send_command(UUID(item_json['item_id']), conn)
 
 
 @app.get("/api/pepper/stop_video",
          tags=['Pepper'], summary="Stop video playback.")
-async def stop_video():
-    return await pepper_connection_manager.stop_video()
+async def stop_video(conn: str):
+    return await pepper_connection_manager.clear_fragment(conn)
 
 
 # Sessions
