@@ -37,7 +37,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, validator
 
-from recorder import Recorder
 from data_handlers.audio import AudioShortcutsHandler
 from data_handlers.motion import MotionsHandler
 from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAction, UtteranceItem
@@ -62,9 +61,12 @@ ADDITINAL_MOTIONS_FOLDER = "data/additional_motions"
 # Create missing files/folders
 if not os.path.isdir('data'):
     os.mkdir('data')
-for subdir in ['additional_motions', 'recorded_audio', 'uploads', 'compressed_sessions']:
+for subdir in ['additional_motions', 'recordings', 'uploads', 'compressed_sessions']:
     if not os.path.isdir(os.path.join('data', subdir)):
         os.mkdir(os.path.join('data', subdir))
+for subdir in ['audio', 'sessions']:
+    if not os.path.isdir(os.path.join('data', 'recordings', subdir)):
+        os.mkdir(os.path.join('data', 'recordings', subdir))
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
     if not os.path.isfile(memory_file):
         with open(memory_file, "w") as f:
@@ -150,7 +152,6 @@ sessions_handler = SessionsHandler(SESSIONS_FILE, actions_handler, motions_handl
 audio_shortcuts_handler = AudioShortcutsHandler(AUDIO_SHORTCUTS_FILE, actions_handler)
 action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler, motions_handler)
 
-recorder = Recorder()
 pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler)
 address_forwarder = AddressForwarder(10)
 
@@ -420,18 +421,28 @@ async def post_session(file_content: UploadFile):
 
 # Recording
 
+# # Testing
+# @app.get("/api/recording/test")
+# def start_recording():
+#     return pepper_connection_manager.recorder.record()
+#
+#
+# @app.get("/api/recording/test_end")
+# def start_recording():
+#     return pepper_connection_manager.recorder.stop_recording()
+
+
 @app.get("/api/recording/start",
-         tags=['Recording'], summary="Begin recording audio using the default input of the backend.")
-def start_recording():
-    # TODO: Create the filename based on session progress (combine SessionItem hash and starting time?)
-    recorder.record("testrec.wav")
+         tags=['Recording'], summary="Begin recording audio and session progress.",
+         description="Audio is taken from the server's default audio input and is saved in WAV format. Recordings can be found in data/recordings.")
+def start_recording(conn: str):
+    return pepper_connection_manager.start_recording(conn)
 
 
 @app.get("/api/recording/stop",
-         tags=['Recording'], summary="Stop recording",
-         description="Finish the recording and save the audio in WAV format.")
-def stop_recording():
-    recorder.stop_recording()
+         tags=['Recording'], summary="Stop recording.")
+def stop_recording(conn: str):
+    return pepper_connection_manager.stop_recording(conn)
 
 
 # Server maintenance
@@ -473,29 +484,3 @@ def shutdown_event():
     motions_handler.save_motions()
     sessions_handler.save_sessions()
     address_forwarder.stop()
-
-# r.GET("/tmp/:name", serveCleanlyHandler)
-#
-# // pepper communication
-# r.POST("/api/pepper/send_command", sendCommandHandler)
-#
-# // sessions management
-# r.GET("/api/session_items/:id", getSessionItemJSONHandler)
-# r.GET("/api/session_export/:id", exportSessionJSONHandler)
-# r.POST("/api/session_import", importSessionHandler)
-#
-# // ?
-# r.GET("/api/instruction/:id", getInstructionJSONHandler)
-# r.DELETE("/api/instruction/:id", deleteInstructionJSONHandler)
-#
-# // general upload API
-# r.DELETE("/api/upload/audio", deleteUploadJSONHandler)
-# r.DELETE("/api/upload/image", deleteUploadJSONHandler)
-# r.POST("/api/upload/move", moveUploadJSONHandler)
-#
-# // serving moveStore
-# r.DELETE("/api/moves/:id", deleteMoveJSONHandler)
-#
-# // utilities: helpful endpoints
-# for the client application or other
-# r.GET("/api/move_groups/", moveGroupsJSONHandler)

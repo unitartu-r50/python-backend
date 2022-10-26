@@ -1,10 +1,14 @@
 import json
+import os.path
 import time
 import asyncio
-from uuid import UUID
+
+from uuid import UUID, uuid4
 from anyio import Event
 from random import randint
 from fastapi import WebSocketDisconnect
+
+from recorder import Recorder
 
 
 class LockManager:
@@ -24,15 +28,68 @@ class PepperConnectionManager:
     def __init__(self, motions_handler, actions_handler):
         # Seconds before an action can be overriden
         self.override_time = 5
+        # Seconds before an unresponsive client gets unlinked from a robot
+        self.connection_clear_time = 30
 
         self.motions_master = motions_handler
         self.actions_master = actions_handler
         self.active_connections = {}
 
+        self.recording_connection = None
+        self.recording_paused = False
+        self.recording_file = None
+        self.recorder = Recorder()
+
         asyncio.create_task(self.clear_connections())
 
     def clear_locks(self, connection_id):
         self.active_connections[connection_id]["lock_manager"].flash()
+
+    def get_status(self, connection_id):
+        if connection_id in self.active_connections and self.active_connections[connection_id]["linked"]:
+            # Refresh the checked time to keep the connection linked (see clear_connections)
+            self.active_connections[connection_id]['checked'] = time.time()
+            return 1
+        return 0
+
+    def start_recording(self, connection_id):
+        # Since the audio is recorded by a physical Raspberry,
+        # each server (Raspberry) can perform up to one recording at a time.
+        if self.recording_connection is not None:
+            return {"error": f"Another client ({connection_id}) is already recording!"}
+        self.recording_connection = connection_id
+        self.recording_paused = False
+        self.recording_file = os.path.join('data', 'recordings', 'sessions', str(uuid4()) + '.csv')
+        self.recorder.record()
+        return {"message": "Recording started..."}
+
+    def pause_recording(self, connection):
+        if connection == self.recording_connection:
+            self.save_audio()
+            self.recording_paused = True
+        return {"message": "Recording paused."}
+
+    def resume_recording(self, connection):
+        if connection == self.recording_connection:
+            self.recorder.record()
+            self.recording_paused = False
+        return {"message": "Recording resumed..."}
+
+    def stop_recording(self, connection):
+        if connection == self.recording_connection:
+            self.save_audio()
+            self.recording_file = None
+            self.recording_paused = False
+            self.recording_connection = None
+        return {"message": "Recording finished!"}
+
+    def record_command(self, command_id):
+        with open(self.recording_file, "a") as f:
+            f.write(f"CMD,{command_id}\n")
+
+    def save_audio(self):
+        with open(self.recording_file, "a") as f:
+            f.write(f"AUDIO,{self.recorder.stop_recording()}\n")
 
     async def send_auth(self, key, content="Enter this code to the web client to connect to this robot", target=None):
         if not target:
@@ -43,13 +100,17 @@ class PepperConnectionManager:
                                            "delay": 0,
                                            "id": key}))
 
+    # Clear clientless connections every self.connection_clear_time seconds
     async def clear_connections(self):
         next_call = time.time()
         while True:
             for key in self.active_connections:
-                if self.active_connections[key]["checked"] and next_call - self.active_connections[key]["checked"] > 30:
+                if self.active_connections[key]["checked"] and next_call - self.active_connections[key]["checked"] > self.connection_clear_time:
                     self.active_connections[key]["linked"] = False
                     self.active_connections[key]["checked"] = None
+                    print(key)
+                    if self.recording_connection == key:
+                        self.stop_recording(key)
                     await self.send_auth(key)
 
             next_call = next_call + 10
@@ -126,13 +187,6 @@ class PepperConnectionManager:
                 return {"message": "Disconnected from the robot!"}
             return {"error": "No client is linked to this robot!"}
         return {"error": "No robot was found under this code!"}
-
-    def get_status(self, connection_id):
-        if connection_id in self.active_connections and self.active_connections[connection_id]["linked"]:
-            # Refresh the checked time to keep the connection linked (see clear_connections)
-            self.active_connections[connection_id]['checked'] = time.time()
-            return 1
-        return 0
 
     async def unlockable_child(self, child_action_type, lock_manager):
         if lock_manager.item_locks[child_action_type]['has_blocked'] and time.time() - lock_manager.item_locks[child_action_type]['start_time'] > self.override_time:
@@ -269,8 +323,17 @@ class PepperConnectionManager:
         # Save command start time (relevant for releasing locks on user override)
         lock_manager.item_locks[action_type]['start_time'] = time.time()
 
+        # Record if relevant
+        if self.recording_connection == connection_id and not self.recording_paused:
+            self.save_audio()
+            self.record_command(action_id)
+
         # Wait for the command to be carried out (notification performed by this.connect)
         await task_finished.wait()
+
+        # Start recording if relevant
+        if self.recording_connection == connection_id and not self.recording_paused:
+            self.recorder.record()
 
         # Construct the message to be returned
         if action_type == 'MultiAction':
@@ -288,6 +351,7 @@ class PepperConnectionManager:
         # Clear the current command, release the type lock, return the result
         lock_manager.active_commands.pop(action.ID)
         lock_manager.item_locks[action_type] = {}
+
         return {str(action.ID): result, "message": message}
 
 

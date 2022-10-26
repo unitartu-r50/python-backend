@@ -2,6 +2,7 @@ import wave
 import pyaudio
 
 from os import path
+from uuid import uuid4
 from threading import Thread
 
 
@@ -15,7 +16,7 @@ class RecordingWorker(Thread):
         self.sample_format = pyaudio.paInt16
         self.channels = 2
         self.sample_rate = 16000
-        self.filename = filename
+        self.filename = filename or str(uuid4()) + ".wav"
         self.caller = caller
 
     def run(self):
@@ -34,7 +35,7 @@ class RecordingWorker(Thread):
         stream.close()
         self.p.terminate()
 
-        with wave.open(path.join("data", "recorded_audio", self.filename), "wb") as wav_file:
+        with wave.open(path.join("data", "recordings", "audio", self.filename), "wb") as wav_file:
             wav_file.setnchannels(self.channels)
             wav_file.setsampwidth(self.p.get_sample_size(self.sample_format))
             wav_file.setframerate(self.sample_rate)
@@ -46,7 +47,7 @@ class Recorder:
         self.worker = None
         self.flag = False
 
-    def record(self, filename):
+    def record(self, filename=None):
         if self.worker is not None:
             print("Already recording!")
             return
@@ -62,5 +63,7 @@ class Recorder:
             return
         self.flag = False
         self.worker.join()
+        filename = self.worker.filename
         self.worker = None
         print("Recording finished.")
+        return filename
