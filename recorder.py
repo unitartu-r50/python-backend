@@ -12,10 +12,10 @@ class RecordingWorker(Thread):
         self.record = False
 
         self.p = pyaudio.PyAudio()
-        self.chunk = 1024
+        self.chunk = 4096
         self.sample_format = pyaudio.paInt16
-        self.channels = 2
-        self.sample_rate = 16000
+        self.channels = 1
+        self.sample_rate = 44100
         self.filename = filename or datetime.now().strftime("%F-%H-%M-%S-%f")[:-3] + ".wav"
         self.caller = caller
 
