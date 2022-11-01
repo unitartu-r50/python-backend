@@ -70,7 +70,6 @@ for subdir in ['additional_motions', 'recordings', 'uploads', 'compressed_sessio
 for subdir in ['audio', 'sessions']:
     if not os.path.isdir(os.path.join('data', 'recordings', subdir)):
         os.mkdir(os.path.join('data', 'recordings', subdir))
-open(os.path.join("data", "recordings", "index.html"), "x").close()
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
     if not os.path.isfile(memory_file):
         with open(memory_file, "w") as f:
