@@ -15,11 +15,9 @@ pip install fastapi[all]
 Recording:
 sudo apt install portaudio19-dev
 
-TODO: Migrate to Python3.9 (Debian has issues using older Python versions than default, the new Raspberries use 3.9)
-TODO: Check delay implementation
+TODO: Migrate to Python3.9 (Debian has issues using older Python versions than default, the new Raspberries use 3.9?)
 TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to different folder
 TODO: Front expects a json-message as response to POST requests (e.g session adding). (partially?) Use status codes instead?
-TODO: Concurrent sessions on n>1 robots
 TODO: Unlink images/audio/motions
 """
 import os
@@ -31,10 +29,11 @@ from zipfile import ZipFile
 from tempfile import TemporaryFile
 from aiofiles import open as async_open
 
+from typing import Union
 from fastapi import FastAPI, Form, Path, Body, UploadFile, WebSocket, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, validator
 
 from data_handlers.audio import AudioShortcutsHandler
@@ -42,10 +41,14 @@ from data_handlers.motion import MotionsHandler
 from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAction, UtteranceItem
 from data_handlers.session import SessionsHandler, Session
 from pepperConnectionManager import PepperConnectionManager
+from recordingManager import RecordingManager
 from addressForwardingManager import AddressForwarder
-from data_handlers.file_operations import hash_phrase_to_filename, hash_and_save_file, synthesize, compress_session
+from data_handlers.file_operations import *
 
 # SERVER SETTINGS
+
+# Recording folder size cap (in GB)
+RECORDINGS_MAX_SIZE = 5
 
 # Neurokõne speaker
 SPEAKERS = ['Luukas', 'Lee']
@@ -67,6 +70,7 @@ for subdir in ['additional_motions', 'recordings', 'uploads', 'compressed_sessio
 for subdir in ['audio', 'sessions']:
     if not os.path.isdir(os.path.join('data', 'recordings', subdir)):
         os.mkdir(os.path.join('data', 'recordings', subdir))
+open(os.path.join("data", "recordings", "index.html"), "x").close()
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
     if not os.path.isfile(memory_file):
         with open(memory_file, "w") as f:
@@ -152,7 +156,8 @@ sessions_handler = SessionsHandler(SESSIONS_FILE, actions_handler, motions_handl
 audio_shortcuts_handler = AudioShortcutsHandler(AUDIO_SHORTCUTS_FILE, actions_handler)
 action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler, motions_handler)
 
-pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler)
+recording_manager = RecordingManager(RECORDINGS_MAX_SIZE)
+pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler, recording_manager)
 address_forwarder = AddressForwarder(10)
 
 
@@ -182,9 +187,12 @@ async def disconnect_pepper(conn: str):
 
 
 @app.get("/api/pepper/status",
-         tags=['Pepper'], summary="Check Pepper connection status.")
-def check_pepper(conn: str):
-    return {"status": pepper_connection_manager.get_status(conn)}
+         tags=['Pepper'], summary="Check Pepper connection and recording storage status.")
+def check_pepper(conn: Union[str, None] = None):
+    msg = {"rec_fill": recording_manager.update_recordings_size()}
+    if conn:
+        msg['status'] = pepper_connection_manager.get_status(conn)
+    return msg
 
 
 @app.post("/api/pepper/send_command",
@@ -421,28 +429,35 @@ async def post_session(file_content: UploadFile):
 
 # Recording
 
-# # Testing
-# @app.get("/api/recording/test")
-# def start_recording():
-#     return pepper_connection_manager.recorder.record()
-#
-#
-# @app.get("/api/recording/test_end")
-# def start_recording():
-#     return pepper_connection_manager.recorder.stop_recording()
-
-
 @app.get("/api/recording/start",
          tags=['Recording'], summary="Begin recording audio and session progress.",
          description="Audio is taken from the server's default audio input and is saved in WAV format. Recordings can be found in data/recordings.")
 def start_recording(conn: str):
-    return pepper_connection_manager.start_recording(conn)
+    return recording_manager.start_recording(conn)
 
 
 @app.get("/api/recording/stop",
          tags=['Recording'], summary="Stop recording.")
 def stop_recording(conn: str):
-    return pepper_connection_manager.stop_recording(conn)
+    return recording_manager.stop_recording(conn)
+
+
+@app.get("/api/recording/export",
+         tags=['Recording'], summary="Export recording data.")
+def export_recordings():
+    if recording_manager.recording_connection:
+        return {"error": "The server is currently recording. Finish recording to export recording data."}
+    return compress_recordings()
+
+
+@app.get("/api/recording/clear_archives",
+         tags=['Recording'], summary="Delete stored archives.")
+def clear_archives():
+    for filder in os.listdir(os.path.join("data", "recordings")):
+        if filder.endswith(".zip"):
+            os.remove(os.path.join("data", "recordings", filder))
+
+    return {"message": "Stored archives deleted."}
 
 
 # Server maintenance

@@ -1,9 +1,11 @@
 import os
 import json
+import shutil
+import zipfile
 import requests
 
 from hashlib import sha256
-from zipfile import ZipFile
+from datetime import datetime
 from aiofiles import open as async_open
 
 from fastapi import UploadFile
@@ -51,7 +53,7 @@ def synthesize(phrase, speaker, speed=1.0, force=False):
 
 def compress_session(session):
     file_path = os.path.join("data", "compressed_sessions", session.Name + ".zip")
-    with ZipFile(file_path, "w") as zip_file:
+    with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.writestr("session.json", json.dumps(jsonable_encoder(session)))
         for item in session.Items:
             for action in item.Actions:
@@ -62,3 +64,23 @@ def compress_session(session):
                     zip_file.write(action.ImageItem.FilePath,
                                    arcname=os.path.join("uploads", os.path.basename(action.ImageItem.FilePath)))
     return {"relative_path": file_path, "message": "Session exported, check your browser downloads!"}
+
+
+def compress_recordings():
+    file_path = os.path.join("data", "recordings",
+                             str(datetime.now()).split(".")[0].replace(" ", "-").replace(":", "-") + ".zip")
+    for subdir in ['audio', 'sessions']:
+        os.rename(os.path.join("data", "recordings", subdir), os.path.join("data", "recordings", "exported_" + subdir))
+        os.mkdir(os.path.join('data', 'recordings', subdir))
+    with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for folder in ["exported_audio", "exported_sessions"]:
+            for root, dirs, files in os.walk(os.path.join("data", "recordings", folder)):
+                for file in files:
+                    zip_file.write(os.path.join(root, file),
+                                   os.path.relpath(os.path.join(root, file),
+                                                   os.path.join(file_path, '..')))
+    for folder in ["exported_audio", "exported_sessions"]:
+        shutil.rmtree(os.path.join("data", "recordings", folder))
+
+    return {"relative_path": file_path, "message": "Recordings exported, check your browser downloads/pop-up blocker!"}
+

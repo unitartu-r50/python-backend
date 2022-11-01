@@ -2,7 +2,7 @@ import wave
 import pyaudio
 
 from os import path
-from uuid import uuid4
+from datetime import datetime
 from threading import Thread
 
 
@@ -16,7 +16,7 @@ class RecordingWorker(Thread):
         self.sample_format = pyaudio.paInt16
         self.channels = 2
         self.sample_rate = 16000
-        self.filename = filename or str(uuid4()) + ".wav"
+        self.filename = filename or datetime.now().strftime("%F-%H-%M-%S-%f")[:-3] + ".wav"
         self.caller = caller
 
     def run(self):
