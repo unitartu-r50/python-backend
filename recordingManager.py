@@ -24,8 +24,6 @@ class RecordingManager:
                                                                '-s',
                                                                '--si',
                                                                '--block-size=MB',
-                                                               # TODO: REMOVE THIS FLAG
-                                                               '--apparent-size',
                                                                os.path.join('data', 'recordings')]).decode('utf-8').split("MB")[0])/1000/self.rec_cap, 2)
         return self.storage_fill
 
