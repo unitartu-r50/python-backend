@@ -3,14 +3,15 @@ import subprocess
 
 from datetime import datetime
 
+from config import RECORDING_SIZE_LIMIT
 from recorder import Recorder
 
 
 class RecordingManager:
-    def __init__(self, rec_cap):
+    def __init__(self):
         # In GB
         self.storage_fill = 0
-        self.rec_cap = rec_cap
+        self.rec_cap = RECORDING_SIZE_LIMIT
 
         self.recording_connection = None
         self.recording_paused = False
@@ -19,6 +20,10 @@ class RecordingManager:
 
         self.update_recordings_size()
 
+        for subdir in ['audio', 'sessions']:
+            if not os.path.isdir(os.path.join('data', 'recordings', subdir)):
+                os.mkdir(os.path.join('data', 'recordings', subdir))
+
     def update_recordings_size(self):
         self.storage_fill = round(int(subprocess.check_output(['du',
                                                                '-s',
@@ -26,6 +31,9 @@ class RecordingManager:
                                                                '--block-size=MB',
                                                                os.path.join('data', 'recordings')]).decode('utf-8').split("MB")[0])/1000/self.rec_cap, 2)
         return self.storage_fill
+
+    def record_audio(self):
+        self.recorder.record()
 
     def save_audio(self):
         with open(self.recording_file, "a") as f:
@@ -46,7 +54,7 @@ class RecordingManager:
         self.recording_connection = connection_id
         self.recording_paused = False
         self.recording_file = os.path.join('data', 'recordings', 'sessions', datetime.now().strftime("%F-%H-%M-%S-%f")[:-3] + '.csv')
-        self.recorder.record()
+        self.record_audio()
         return {"message": "Recording started..."}
 
     def pause_recording(self, connection):
@@ -57,8 +65,8 @@ class RecordingManager:
 
     def resume_recording(self, connection):
         if connection == self.recording_connection:
-            self.recorder.record()
             self.recording_paused = False
+            self.record_audio()
         return {"message": "Recording resumed..."}
 
     def stop_recording(self, connection):
