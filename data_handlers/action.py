@@ -262,11 +262,19 @@ class ActionShortcutsHandler:
 
         self.actions[index] = action
         self._save_actions()
+        self.actions_master.add_action(action, overwrite=True)
+        if type(action).__name__ == 'MultiAction':
+            for child_action in action.get_children():
+                self.actions_master.add_action(child_action, overwrite=True)
         return {"message": "Shortcut updated!"}
 
     def remove_action(self, action_id):
         for index, listed_action in enumerate(self.actions):
             if listed_action.ID == action_id:
+                self.actions_master.remove_action(action_id)
+                if type(self.actions[index]).__name__ == 'MultiAction':
+                    for child_action in self.actions[index].get_children():
+                        self.actions_master.remove_action(child_action.ID, overwrite=True)
                 self.actions.pop(index)
                 self._save_actions()
                 return {"message": "Shortcut deleted!"}
@@ -288,3 +296,6 @@ class ActionsHandler:
 
     def get_action(self, action_id: UUID):
         return self.actions[action_id] if action_id in self.actions.keys() else None
+
+    def remove_action(self, action_id):
+        self.actions.pop(action_id, None)
