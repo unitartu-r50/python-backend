@@ -20,39 +20,29 @@ TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to
 TODO: Front expects a json-message as response to POST requests (e.g session adding). (partially?) Use status codes instead?
 TODO: Unlink images/audio/motions
 """
-import os
-import json
 import subprocess
 
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 from tempfile import TemporaryFile
-from aiofiles import open as async_open
 
 from typing import Union
-from fastapi import FastAPI, Form, Path, Body, UploadFile, WebSocket, Request
+from fastapi import FastAPI, Form, Path, Body, WebSocket, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
+from config import *
+from recordingManager import RecordingManager
 from data_handlers.audio import AudioShortcutsHandler
 from data_handlers.motion import MotionsHandler
 from data_handlers.action import ActionsHandler, ActionShortcutsHandler, MultiAction, UtteranceItem
 from data_handlers.session import SessionsHandler, Session
 from pepperConnectionManager import PepperConnectionManager
-from recordingManager import RecordingManager
+from recordingForwardingManager import RecordingForwardingManager
 from addressForwardingManager import AddressForwarder
 from data_handlers.file_operations import *
-
-# SERVER SETTINGS
-
-# Recording folder size cap (in GB)
-RECORDINGS_MAX_SIZE = 5
-
-# Neurokõne speaker
-SPEAKERS = ['Luukas', 'Lee']
-SPEAKER = 'Luukas'
 
 # Save file paths
 SESSIONS_FILE = "data/sessions.json"
@@ -67,9 +57,6 @@ if not os.path.isdir('data'):
 for subdir in ['additional_motions', 'recordings', 'uploads', 'compressed_sessions']:
     if not os.path.isdir(os.path.join('data', subdir)):
         os.mkdir(os.path.join('data', subdir))
-for subdir in ['audio', 'sessions']:
-    if not os.path.isdir(os.path.join('data', 'recordings', subdir)):
-        os.mkdir(os.path.join('data', 'recordings', subdir))
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
     if not os.path.isfile(memory_file):
         with open(memory_file, "w") as f:
@@ -77,46 +64,26 @@ for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, 
 
 # FastAPI config
 tags_metadata = [
-    {
-        "name": "Pepper",
-        "description": "Endpoints for communicating with Pepper"
-    },
-    {
-        "name": "Sessions",
-        "description": "Session manipulation",
-    },
-    {
-        "name": "General audio",
-        "description": "General audio queries"
-    },
-    {
-        "name": "Actions",
-        "description": "Action shortcut manipulation"
-    },
-    {
-        "name": "Audio",
-        "description": "Audio shortcut manipulation"
-    },
-    {
-        "name": "Motions",
-        "description": "Movements manipulation"
-    },
-    {
-        "name": "Uploads",
-        "description": "Session uploads"
-    },
-    {
-        "name": "Synthesis",
-        "description": "Calls to synthesize and save speech files via Neurokõne"
-    },
-    {
-        "name": "Recording",
-        "description": "Calls to start/end audio recording."
-    },
-    {
-        "name": "Maintenance",
-        "description": "Calls related to updating the front-end and back-end servers."
-    }
+    {"name": "Pepper",
+     "description": "Endpoints for communicating with Pepper"},
+    {"name": "Sessions",
+     "description": "Session manipulation"},
+    {"name": "General audio",
+     "description": "General audio queries"},
+    {"name": "Actions",
+     "description": "Action shortcut manipulation"},
+    {"name": "Audio",
+     "description": "Audio shortcut manipulation"},
+    {"name": "Motions",
+     "description": "Movements manipulation"},
+    {"name": "Uploads",
+     "description": "Session uploads"},
+    {"name": "Synthesis",
+     "description": "Calls to synthesize and save speech files via Neurokõne"},
+    {"name": "Recording",
+     "description": "Calls to start/end audio recording."},
+    {"name": "Maintenance",
+     "description": "Calls related to updating the front-end and back-end servers."}
 ]
 app = FastAPI(
     title="Pepper backend",
@@ -155,7 +122,10 @@ sessions_handler = SessionsHandler(SESSIONS_FILE, actions_handler, motions_handl
 audio_shortcuts_handler = AudioShortcutsHandler(AUDIO_SHORTCUTS_FILE, actions_handler)
 action_shortcuts_handler = ActionShortcutsHandler(ACTION_SHORTCUTS_FILE, actions_handler, motions_handler)
 
-recording_manager = RecordingManager(RECORDINGS_MAX_SIZE)
+if CLOUDFRONT_SERVER:
+    recording_manager = RecordingForwardingManager()
+else:
+    recording_manager = RecordingManager()
 pepper_connection_manager = PepperConnectionManager(motions_handler, actions_handler, recording_manager)
 address_forwarder = AddressForwarder(10)
 
@@ -188,7 +158,9 @@ async def disconnect_pepper(conn: str):
 @app.get("/api/pepper/status",
          tags=['Pepper'], summary="Check Pepper connection and recording storage status.")
 def check_pepper(conn: Union[str, None] = None):
-    msg = {"rec_fill": recording_manager.update_recordings_size()}
+    msg = {}
+    if not CLOUDFRONT_SERVER:
+        msg["rec_fill"] = recording_manager.update_recordings_size()
     if conn:
         msg['status'] = pepper_connection_manager.get_status(conn)
     return msg

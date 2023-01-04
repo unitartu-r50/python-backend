@@ -288,7 +288,7 @@ class PepperConnectionManager:
 
         # Start recording if relevant
         if self.record_manager.recording_connection == connection_id and not self.record_manager.recording_paused:
-            self.record_manager.recorder.record()
+            self.record_manager.record_audio()
 
         # Construct the message to be returned
         if action_type == 'MultiAction':
