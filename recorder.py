@@ -26,7 +26,7 @@ class RecordingWorker(Thread):
 
     # Starlette's websockets don't enable creating connections, so plain websockets is used instead (requires async).
     async def stream_audio(self, pyaudio_stream):
-        async with websockets.connect("ws://" + CLOUDFRONT_SERVER + AUDIO_ENDPOINT) as websocket:
+        async with websockets.connect("wss://" + CLOUDFRONT_SERVER + AUDIO_ENDPOINT) as websocket:
             await websocket.send(json.dumps({"ch": self.channels,
                                              "sw": self.p.get_sample_size(self.sample_format),
                                              "fr": self.sample_rate,

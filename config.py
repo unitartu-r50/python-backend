@@ -8,7 +8,8 @@
 # Web address of the server which receives session progress and recordings, and yields chatbot predictions.
 # If unspecified, recorded data will be saved to local storage under data/recordings/ and
 # AI predictions will not be available.
-CLOUDFRONT_SERVER = "127.0.0.1:80"
+# CLOUDFRONT_SERVER = "127.0.0.1:8090"
+CLOUDFRONT_SERVER = ""
 # Path to the recording identifier requesting endpoint
 START_RECORD_ENDPOINT = "/start_session"
 # Path to the audio input websocket endpoint

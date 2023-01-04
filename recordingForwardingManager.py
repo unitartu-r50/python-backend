@@ -23,12 +23,14 @@ class RecordingForwardingManager:
         self.recorder.stop_recording()
 
     def record_command(self, command_id):
-        r = requests.get("http://" + CLOUDFRONT_SERVER + ACTION_ENDPOINT, params={"action_id": command_id,
-                                                                                  "session_name": self.session_name})
+        r = requests.get("https://" + CLOUDFRONT_SERVER + ACTION_ENDPOINT, params={"action_id": command_id,
+                                                                                   "session_name": self.session_name})
         print(r.json())
 
     def start_recording(self, connection_id):
-        self.session_name = requests.get("http://" + CLOUDFRONT_SERVER + START_RECORD_ENDPOINT).json()['session_name']
+        xd = requests.get("https://" + CLOUDFRONT_SERVER + START_RECORD_ENDPOINT).json()
+        print(xd)
+        self.session_name = xd['session_name']
         self.recording_connection = connection_id
         self.recording_paused = False
         self.record_audio()
