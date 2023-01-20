@@ -16,11 +16,10 @@ class RecordingWorker(Thread):
         super().__init__()
         self.record = False
 
-        self.p = pyaudio.PyAudio()
-        self.chunk = 4096
+        self.chunk = 1536
         self.sample_format = pyaudio.paInt16
         self.channels = 1
-        self.sample_rate = 44100
+        self.sample_rate = 16000
         self.filename = filename
         self.caller = caller
 
@@ -28,7 +27,7 @@ class RecordingWorker(Thread):
     async def stream_audio(self, pyaudio_stream):
         async with websockets.connect("wss://" + CLOUDFRONT_SERVER + AUDIO_ENDPOINT) as websocket:
             await websocket.send(json.dumps({"ch": self.channels,
-                                             "sw": self.p.get_sample_size(self.sample_format),
+                                             "sw": self.caller.pyaudio.get_sample_size(self.sample_format),
                                              "fr": self.sample_rate,
                                              "session": self.filename}))
             while self.caller.flag:
@@ -36,15 +35,14 @@ class RecordingWorker(Thread):
 
         pyaudio_stream.stop_stream()
         pyaudio_stream.close()
-        self.p.terminate()
 
     def run(self):
-        pyaudio_stream = self.p.open(format=self.sample_format,
-                                     channels=self.channels,
-                                     rate=self.sample_rate,
-                                     frames_per_buffer=self.chunk,
-                                     input=True
-                                     )
+        pyaudio_stream = self.caller.pyaudio.open(format=self.sample_format,
+                                                  channels=self.channels,
+                                                  rate=self.sample_rate,
+                                                  frames_per_buffer=self.chunk,
+                                                  input=True
+                                                  )
 
         if self.caller.stream:
             # An asynchronous function inside a synchronous function? Madness!
@@ -60,11 +58,10 @@ class RecordingWorker(Thread):
 
             pyaudio_stream.stop_stream()
             pyaudio_stream.close()
-            self.p.terminate()
 
             with wave.open(path.join("data", "recordings", "audio", self.filename), "wb") as wav_file:
                 wav_file.setnchannels(self.channels)
-                wav_file.setsampwidth(self.p.get_sample_size(self.sample_format))
+                wav_file.setsampwidth(self.caller.pyaudio.get_sample_size(self.sample_format))
                 wav_file.setframerate(self.sample_rate)
                 wav_file.writeframes(b''.join(frames))
 
@@ -74,6 +71,7 @@ class Recorder:
         self.stream = stream
         self.worker = None
         self.flag = False
+        self.pyaudio = pyaudio.PyAudio()
 
     def record(self, filename=None):
         if self.worker is not None:

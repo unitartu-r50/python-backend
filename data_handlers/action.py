@@ -63,6 +63,9 @@ class UtteranceItem(SingleAction):
                 "delay": self.Delay,
                 "id": str(self.ID)}
 
+    def get_command_description(self):
+        return "PHRASE", self.Phrase
+
     def pronunciation_cleanup(self):
         if self.Pronunciation == self.Phrase:
             self.Pronunciation = ""
@@ -114,6 +117,9 @@ class MotionItem(SingleAction):
                 "delay": self.Delay,
                 "id": str(self.ID)}
 
+    def get_command_description(self):
+        return "MOTION", self.Name
+
 
 # https://stackoverflow.com/a/7936523
 def video_id(value):
@@ -161,7 +167,17 @@ class MultiAction(Action):
     # MultiAction commands are not supposed to be sent to the robot,
     # send individual commands (Utterance, Motion etc.) asynchronously instead.
     def get_command_payload(self):
-        raise NotImplementedError
+        return NotImplementedError
+
+    def get_command_description(self):
+        if self.UtteranceItem is not None and self.UtteranceItem.Phrase is not None:
+            return "PHRASE", self.UtteranceItem.Phrase
+        elif self.MotionItem is not None and self.MotionItem.Name is not None:
+            return "MOTION", self.MotionItem.Name
+        elif self.ImageItem is not None and self.ImageItem.FilePath is not None:
+            return "IMAGE", self.ImageItem.FilePath
+        else:
+            return "CMD", self.ID
 
     def get_children(self, must_be_valid=False):
         children = []

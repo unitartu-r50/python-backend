@@ -83,10 +83,10 @@ class PepperConnectionManager:
                 auth_code = "ERR!"
                 content = "The server is at capacity!"
             else:
-                auth_code = str(randint(0, 1000)).zfill(4)
+                auth_code = str(randint(0, 10000)).zfill(4)
                 content = "Enter this code to the web client to connect to this robot"
                 while auth_code in self.active_connections:
-                    auth_code = str(randint(0, 1000)).zfill(4)
+                    auth_code = str(randint(0, 10000)).zfill(4)
 
             await self.send_auth(auth_code, content=content, target=websocket)
 
@@ -281,7 +281,7 @@ class PepperConnectionManager:
         # Record if relevant
         if self.record_manager.recording_connection == connection_id and not self.record_manager.recording_paused:
             self.record_manager.save_audio()
-            self.record_manager.record_command(action_id)
+            self.record_manager.record_command(action)
 
         # Wait for the command to be carried out (notification performed by this.connect)
         await task_finished.wait()
