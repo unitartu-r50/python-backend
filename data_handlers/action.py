@@ -290,7 +290,7 @@ class ActionShortcutsHandler:
                 self.actions_master.remove_action(action_id)
                 if type(self.actions[index]).__name__ == 'MultiAction':
                     for child_action in self.actions[index].get_children():
-                        self.actions_master.remove_action(child_action.ID, overwrite=True)
+                        self.actions_master.remove_action(child_action.ID)
                 self.actions.pop(index)
                 self._save_actions()
                 return {"message": "Shortcut deleted!"}
