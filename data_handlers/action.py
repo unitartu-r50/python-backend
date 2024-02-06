@@ -57,6 +57,9 @@ class UtteranceItem(SingleAction):
         self.FilePath = ""
 
     def get_command_payload(self):
+        # Double-check for actual audio to play
+        if self.FilePath is None:
+            raise NotImplementedError
         return {"command": "say",
                 "content": encode_url(self.FilePath),
                 "name": self.Phrase,
@@ -182,7 +185,7 @@ class MultiAction(Action):
     def get_children(self, must_be_valid=False):
         children = []
         if self.UtteranceItem is not None and self.UtteranceItem.ID is not None:
-            if not must_be_valid or self.UtteranceItem.Phrase is not None:
+            if not must_be_valid or self.UtteranceItem.FilePath is not None:
                 children.append(self.UtteranceItem)
         if self.ImageItem is not None and self.ImageItem.ID is not None:
             if not must_be_valid or self.ImageItem.FilePath is not None:

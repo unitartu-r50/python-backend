@@ -211,7 +211,7 @@ class PepperConnectionManager:
             if not action.get_children(must_be_valid=True):
                 return {str(action_id): "action_warning", "message": "MultiAction has no children to execute!"}
             # ... and check for locks on each of its child actions.
-            if action.UtteranceItem and action.UtteranceItem.Phrase and lock_manager.item_locks['UtteranceItem']:
+            if action.UtteranceItem and action.UtteranceItem.FilePath and lock_manager.item_locks['UtteranceItem']:
                 if await self.unlockable_child('UtteranceItem', lock_manager):
                     lockbreak = True
                 else:
