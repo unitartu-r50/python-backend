@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import logging
 import requests
 
 from threading import Thread
@@ -19,7 +20,10 @@ class AddressForwardingWorker(Thread):
         while self.caller.flag:
             if counter >= self.timer:
                 server_ip = os.popen('ip addr show wlan0 | grep "\<inet\>" | awk \'{ print $2 }\' | awk -F "/" \'{ print $1 }\'').read().strip()
-                requests.post(ADDRESS_RECEIVER, json=json.dumps({'ip': server_ip, 'id': SERVER_IDENTIFIER}))
+                try:
+                    requests.post(ADDRESS_RECEIVER, json=json.dumps({'ip': server_ip, 'id': SERVER_IDENTIFIER}))
+                except ConnectionError as err:
+                    logging.error(err)
                 counter = 0
             else:
                 counter += 1
