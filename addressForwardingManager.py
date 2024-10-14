@@ -22,8 +22,8 @@ class AddressForwardingWorker(Thread):
                 server_ip = os.popen('ip addr show wlan0 | grep "\<inet\>" | awk \'{ print $2 }\' | awk -F "/" \'{ print $1 }\'').read().strip()
                 try:
                     requests.post(ADDRESS_RECEIVER, json=json.dumps({'ip': server_ip, 'id': SERVER_IDENTIFIER}))
-                except ConnectionError as err:
-                    logging.error(err)
+                except requests.exceptions.ConnectionError:
+                    logging.info(f"Failed to connect to the IP recording server, trying again in {self.timer} seconds...")
                 counter = 0
             else:
                 counter += 1
