@@ -400,25 +400,25 @@ async def post_session(file_content: UploadFile):
 
 # Recording
 
-@app.get("/api/recording/start",
-         tags=['Recording'], summary="Begin recording audio and session progress.",
-         description="Audio is taken from the server's default audio input and is saved in WAV format. Recordings can be found in data/recordings.")
-def start_recording(conn: str):
-    return recording_manager.start_recording(conn)
-
-
-@app.get("/api/recording/stop",
-         tags=['Recording'], summary="Stop recording.")
-def stop_recording(conn: str):
-    return recording_manager.stop_recording(conn)
-
-
-@app.get("/api/recording/export",
-         tags=['Recording'], summary="Export recording data.")
-def export_recordings():
-    if recording_manager.recording_connection:
-        return {"error": "The server is currently recording. Finish recording to export recording data."}
-    return compress_recordings()
+# @app.get("/api/recording/start",
+#          tags=['Recording'], summary="Begin recording audio and session progress.",
+#          description="Audio is taken from the server's default audio input and is saved in WAV format. Recordings can be found in data/recordings.")
+# def start_recording(conn: str):
+#     return recording_manager.start_recording(conn)
+#
+#
+# @app.get("/api/recording/stop",
+#          tags=['Recording'], summary="Stop recording.")
+# def stop_recording(conn: str):
+#     return recording_manager.stop_recording(conn)
+#
+#
+# @app.get("/api/recording/export",
+#          tags=['Recording'], summary="Export recording data.")
+# def export_recordings():
+#     if recording_manager.recording_connection:
+#         return {"error": "The server is currently recording. Finish recording to export recording data."}
+#     return compress_recordings()
 
 
 @app.get("/api/recording/clear_archives",
