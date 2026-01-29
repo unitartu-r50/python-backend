@@ -3,6 +3,7 @@ import json
 import shutil
 import zipfile
 import requests
+import subprocess
 
 from hashlib import sha256
 from datetime import datetime
@@ -36,6 +37,7 @@ async def hash_and_save_file(file_content: UploadFile, file_type: str):
 
 def synthesize(phrase, speaker, speed=1.0, force=False):
     print("Got phrase ", phrase)
+    temp_filepath = os.path.join('data', 'uploads', 'temp', hash_phrase_to_filename(phrase + speaker + str(speed)) + ".wav")
     filepath = os.path.join('data', 'uploads', hash_phrase_to_filename(phrase + speaker + str(speed)) + ".wav")
     if force or not os.path.isfile(filepath):
         print("Synthesizing ", filepath)
@@ -43,8 +45,12 @@ def synthesize(phrase, speaker, speed=1.0, force=False):
         r = requests.post('https://api.tartunlp.ai/text-to-speech/v2', json={'text': phrase,
                                                                              'speaker': speaker,
                                                                              'speed': speed})
-        with open(filepath, 'wb') as save_file:
+        with open(temp_filepath, 'wb') as save_file:
             save_file.write(r.content)
+
+        subprocess.run(["ffmpeg", "-i", temp_filepath, "-b:a", "352k", filepath])
+        os.remove(temp_filepath)
+        print("Created ", filepath)
     else:
         print("Skipping ", filepath, ", already exists")
 

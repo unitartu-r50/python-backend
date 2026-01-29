@@ -20,6 +20,7 @@ TODO: Unlinked files persist. Cleanup on server shutdown, move unlinked files to
 TODO: Front expects a json-message as response to POST requests (e.g session adding). (partially?) Use status codes instead?
 TODO: Unlink images/audio/motions
 """
+import os.path
 import subprocess
 
 from uuid import UUID, uuid4
@@ -57,6 +58,8 @@ if not os.path.isdir('data'):
 for subdir in ['additional_motions', 'recordings', 'uploads', 'compressed_sessions']:
     if not os.path.isdir(os.path.join('data', subdir)):
         os.mkdir(os.path.join('data', subdir))
+        if subdir == "uploads":
+            os.mkdir(os.path.join('data', 'uploads', 'temp'))
 for memory_file in [SESSIONS_FILE, AUDIO_SHORTCUTS_FILE, ACTION_SHORTCUTS_FILE, MOTIONS_FILE]:
     if not os.path.isfile(memory_file):
         with open(memory_file, "w") as f:
